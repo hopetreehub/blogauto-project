@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # 백엔드 API 서버
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./blogauto.db
+      - SECRET_KEY=${SECRET_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_ADS_API_KEY=${GOOGLE_ADS_API_KEY}
+      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
+      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    networks:
+      - innerbot-network
+    restart: unless-stopped
+
+  # 프론트엔드 (Nginx 서빙)
+  frontend:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend/build:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - api
+    networks:
+      - innerbot-network
+    restart: unless-stopped
+
+networks:
+  innerbot-network:
+    driver: bridge
+
+volumes:
+  data:

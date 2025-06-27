@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  postgresql:
+    image: postgres:15
+    container_name: blogauto_postgres
+    environment:
+      POSTGRES_DB: blogauto
+      POSTGRES_USER: blogauto_user
+      POSTGRES_PASSWORD: blogauto_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - blogauto_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: blogauto_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - blogauto_network
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: blogauto_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://blogauto_user:blogauto_password@postgresql:5432/blogauto
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgresql
+      - redis
+    volumes:
+      - ../backend:/app
+    networks:
+      - blogauto_network
+
+  nextjs:
+    build:
+      context: ../nextjs-app
+      dockerfile: ../docker/Dockerfile.nextjs
+    container_name: blogauto_nextjs
+    ports:
+      - "3000:3000"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    volumes:
+      - ../nextjs-app:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - blogauto_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  blogauto_network:
+    driver: bridge
