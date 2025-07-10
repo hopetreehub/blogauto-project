@@ -1,0 +1,24 @@
+[Unit]
+Description=Blog Automation Backend API Server
+After=network.target
+
+[Service]
+Type=simple
+User=jun1473
+WorkingDirectory=/mnt/e/project/test-blogauto-project/backend
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/mnt/e/project/test-blogauto-project/backend
+ExecStart=/usr/bin/python3 real_api_simple.py
+Restart=always
+RestartSec=10
+
+# 로그 설정
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=blogauto-backend
+
+# 보안 설정
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

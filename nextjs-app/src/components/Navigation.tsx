@@ -10,6 +10,9 @@ const navigation = [
   { name: '콘텐츠 생성', href: '/content', icon: '📝' },
   { name: 'SEO 분석', href: '/seo', icon: '📈' },
   { name: '배치 작업', href: '/batch', icon: '⚡' },
+  { name: 'WordPress', href: '/wordpress', icon: '🚀' },
+  { name: '작성 지침', href: '/guidelines', icon: '📋' },
+  { name: '설정', href: '/settings', icon: '⚙️' },
 ];
 
 export default function Navigation() {

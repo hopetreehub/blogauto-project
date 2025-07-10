@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>블로그 자동화 API 테스트</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .error {
+            border-left-color: #f56565;
+            background: #fff5f5;
+        }
+        .success {
+            border-left-color: #48bb78;
+            background: #f0fff4;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e1e4e8;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        pre {
+            background: #f6f8fa;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            margin-left: 10px;
+        }
+        .status.online {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 블로그 자동화 API 테스트</h1>
+            <p>API 서버 상태: <span id="serverStatus" class="status offline">오프라인</span></p>
+        </div>
+
+        <div class="card">
+            <h2>🔐 인증</h2>
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('register')">회원가입</button>
+                <button class="tab" onclick="showTab('login')">로그인</button>
+            </div>
+            
+            <div id="register" class="tab-content active">
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label>이메일</label>
+                        <input type="email" name="email" placeholder="test@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>비밀번호</label>
+                        <input type="password" name="password" placeholder="최소 8자 이상" required>
+                    </div>
+                    <div class="form-group">
+                        <label>이름</label>
+                        <input type="text" name="name" placeholder="홍길동" required>
+                    </div>
+                    <button type="submit">회원가입</button>
+                </form>
+            </div>
+            
+            <div id="login" class="tab-content">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>이메일</label>
+                        <input type="email" name="email" placeholder="test@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>비밀번호</label>
+                        <input type="password" name="password" required>
+                    </div>
+                    <button type="submit">로그인</button>
+                </form>
+                <div id="tokenDisplay" style="display: none; margin-top: 20px;">
+                    <label>액세스 토큰 (자동 저장됨)</label>
+                    <textarea id="accessToken" readonly style="font-family: monospace; font-size: 12px;"></textarea>
+                </div>
+            </div>
+            
+            <div id="authResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="card">
+            <h2>🔍 키워드 분석</h2>
+            <form id="keywordForm">
+                <div class="form-group">
+                    <label>키워드</label>
+                    <input type="text" name="keyword" placeholder="예: 파이썬 프로그래밍" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="include_trends" checked> 트렌드 포함
+                    </label>
+                </div>
+                <button type="submit">분석하기</button>
+            </form>
+            <div id="keywordResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="card">
+            <h2>✍️ 제목 생성</h2>
+            <form id="titleForm">
+                <div class="form-group">
+                    <label>키워드</label>
+                    <input type="text" name="keyword" placeholder="예: 파이썬 웹개발" required>
+                </div>
+                <div class="form-group">
+                    <label>스타일</label>
+                    <select name="style">
+                        <option value="viral">바이럴 (조회수 중심)</option>
+                        <option value="professional">전문적</option>
+                        <option value="casual">캐주얼</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>생성 개수</label>
+                    <input type="number" name="count" value="5" min="1" max="10">
+                </div>
+                <button type="submit">제목 생성</button>
+            </form>
+            <div id="titleResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="card">
+            <h2>📝 콘텐츠 생성</h2>
+            <form id="contentForm">
+                <div class="form-group">
+                    <label>제목</label>
+                    <input type="text" name="title" placeholder="예: 파이썬으로 10분 만에 웹 스크래퍼 만들기" required>
+                </div>
+                <div class="form-group">
+                    <label>키워드 (쉼표로 구분)</label>
+                    <input type="text" name="keywords" placeholder="파이썬, 웹스크래핑, BeautifulSoup">
+                </div>
+                <div class="form-group">
+                    <label>톤</label>
+                    <select name="tone">
+                        <option value="friendly">친근한</option>
+                        <option value="professional">전문적</option>
+                        <option value="casual">캐주얼</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>길이</label>
+                    <select name="length">
+                        <option value="short">짧게 (500-800자)</option>
+                        <option value="medium" selected>보통 (800-1200자)</option>
+                        <option value="long">길게 (1200-2000자)</option>
+                    </select>
+                </div>
+                <button type="submit">콘텐츠 생성</button>
+            </form>
+            <div id="contentResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let authToken = localStorage.getItem('authToken') || '';
+
+        // 서버 상태 확인
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/`);
+                if (response.ok) {
+                    document.getElementById('serverStatus').textContent = '온라인';
+                    document.getElementById('serverStatus').className = 'status online';
+                } else {
+                    throw new Error();
+                }
+            } catch (error) {
+                document.getElementById('serverStatus').textContent = '오프라인';
+                document.getElementById('serverStatus').className = 'status offline';
+            }
+        }
+
+        // 탭 전환
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // API 요청 헬퍼
+        async function apiRequest(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            if (authToken) {
+                options.headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+
+            const response = await fetch(`${API_BASE}${endpoint}`, options);
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.detail || 'API 요청 실패');
+            }
+
+            return result;
+        }
+
+        // 결과 표시
+        function showResult(elementId, content, isError = false) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${isError ? 'error' : 'success'}`;
+            element.innerHTML = content;
+        }
+
+        // 회원가입
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+                email: formData.get('email'),
+                password: formData.get('password'),
+                name: formData.get('name')
+            };
+
+            try {
+                const result = await apiRequest('/auth/register', 'POST', data);
+                showResult('authResult', 
+                    `<strong>✅ 회원가입 성공!</strong><br>
+                    이메일: ${result.email}<br>
+                    이름: ${result.name}<br>
+                    이제 로그인 탭에서 로그인하세요.`
+                );
+            } catch (error) {
+                showResult('authResult', `<strong>❌ 오류:</strong> ${error.message}`, true);
+            }
+        });
+
+        // 로그인
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+                username: formData.get('email'),
+                password: formData.get('password')
+            };
+
+            try {
+                const result = await apiRequest('/auth/login', 'POST', data);
+                authToken = result.access_token;
+                localStorage.setItem('authToken', authToken);
+                
+                document.getElementById('accessToken').value = authToken;
+                document.getElementById('tokenDisplay').style.display = 'block';
+                
+                showResult('authResult', 
+                    `<strong>✅ 로그인 성공!</strong><br>
+                    토큰이 저장되었습니다. 이제 다른 API를 사용할 수 있습니다.`
+                );
+            } catch (error) {
+                showResult('authResult', `<strong>❌ 오류:</strong> ${error.message}`, true);
+            }
+        });
+
+        // 키워드 분석
+        document.getElementById('keywordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+                keyword: formData.get('keyword'),
+                include_trends: formData.get('include_trends') === 'on'
+            };
+
+            try {
+                const result = await apiRequest('/api/v1/keywords/analyze', 'POST', data);
+                showResult('keywordResult', 
+                    `<strong>🔍 키워드 분석 결과</strong><br>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>`
+                );
+            } catch (error) {
+                showResult('keywordResult', `<strong>❌ 오류:</strong> ${error.message}`, true);
+            }
+        });
+
+        // 제목 생성
+        document.getElementById('titleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+                keyword: formData.get('keyword'),
+                style: formData.get('style'),
+                count: parseInt(formData.get('count'))
+            };
+
+            try {
+                const result = await apiRequest('/api/v1/titles/generate', 'POST', data);
+                let titlesHtml = '<strong>✍️ 생성된 제목</strong><br><br>';
+                result.titles.forEach((title, index) => {
+                    titlesHtml += `${index + 1}. ${title}<br>`;
+                });
+                showResult('titleResult', titlesHtml);
+            } catch (error) {
+                showResult('titleResult', `<strong>❌ 오류:</strong> ${error.message}`, true);
+            }
+        });
+
+        // 콘텐츠 생성
+        document.getElementById('contentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const keywords = formData.get('keywords').split(',').map(k => k.trim()).filter(k => k);
+            const data = {
+                title: formData.get('title'),
+                keywords: keywords,
+                tone: formData.get('tone'),
+                length: formData.get('length')
+            };
+
+            try {
+                // 로딩 표시
+                showResult('contentResult', 
+                    '<strong>⏳ 콘텐츠 생성 중...</strong> <div class="loading"></div>'
+                );
+
+                const result = await apiRequest('/api/v1/content/generate', 'POST', data);
+                showResult('contentResult', 
+                    `<strong>📝 생성된 콘텐츠</strong><br><br>
+                    <h3>${result.title}</h3>
+                    <div style="white-space: pre-wrap; line-height: 1.8;">${result.content}</div>
+                    <br><strong>SEO 점수:</strong> ${result.seo_score}/100`
+                );
+            } catch (error) {
+                showResult('contentResult', `<strong>❌ 오류:</strong> ${error.message}`, true);
+            }
+        });
+
+        // 초기화
+        checkServerStatus();
+        setInterval(checkServerStatus, 30000); // 30초마다 상태 확인
+
+        // 저장된 토큰이 있으면 표시
+        if (authToken) {
+            document.getElementById('accessToken').value = authToken;
+            document.getElementById('tokenDisplay').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

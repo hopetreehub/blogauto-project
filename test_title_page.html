@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>제목 생성 페이지 테스트</title>
+    <script>
+        async function testTitleGeneration() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>테스트 시작...</p>';
+            
+            try {
+                // 제목 생성 API 호출
+                const response = await fetch('http://localhost:8000/api/titles/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        keyword: '블로그 마케팅',
+                        count: 5,
+                        tone: 'professional',
+                        length: 'medium',
+                        language: 'ko'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                let html = '<h2>✅ 제목 생성 성공!</h2>';
+                html += '<div style="margin-top: 20px;">';
+                
+                data.forEach((result, index) => {
+                    html += `
+                        <div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 5px;">
+                            <h3 style="margin: 0 0 10px 0;">${index + 1}. ${result.title}</h3>
+                            <p style="margin: 5px 0; color: #666;">
+                                점수: ${result.score} | 
+                                길이: ${result.title.length}자 | 
+                                중복률: ${result.duplicate_rate !== undefined ? result.duplicate_rate.toFixed(1) + '%' : 'N/A'}
+                            </p>
+                            <p style="margin: 5px 0; color: #999; font-size: 14px;">${result.reason}</p>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                html += '<p style="color: green; margin-top: 20px;">✅ duplicate_rate 오류 없이 정상 작동!</p>';
+                
+                resultDiv.innerHTML = html;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ 오류 발생: ${error.message}</p>`;
+            }
+        }
+        
+        window.onload = () => {
+            testTitleGeneration();
+        };
+    </script>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px;">
+    <h1>제목 생성 페이지 테스트</h1>
+    <div id="result" style="margin-top: 30px;">
+        <p>로딩 중...</p>
+    </div>
+    
+    <div style="margin-top: 40px; padding: 20px; background-color: #f0f0f0; border-radius: 5px;">
+        <p><strong>테스트 정보:</strong></p>
+        <ul>
+            <li>페이지 URL: <a href="http://localhost:4007/titles" target="_blank">http://localhost:4007/titles</a></li>
+            <li>API URL: http://localhost:8000/api/titles/generate</li>
+            <li>테스트 키워드: "블로그 마케팅"</li>
+            <li>수정 사항: duplicate_rate undefined 오류 해결</li>
+        </ul>
+    </div>
+</body>
+</html>

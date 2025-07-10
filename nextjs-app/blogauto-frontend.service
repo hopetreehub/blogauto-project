@@ -1,0 +1,25 @@
+[Unit]
+Description=Blog Automation Frontend Server
+After=network.target
+
+[Service]
+Type=simple
+User=jun1473
+WorkingDirectory=/mnt/e/project/test-blogauto-project/nextjs-app
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ENV=production
+Environment=PORT=4007
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+
+# 로그 설정
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=blogauto-frontend
+
+# 보안 설정
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

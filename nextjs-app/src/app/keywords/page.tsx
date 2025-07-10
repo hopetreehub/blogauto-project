@@ -1,6 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useToast } from '@/hooks/useToast';
+import ToastContainer from '@/components/ToastContainer';
+import { apiCall } from '@/utils/api';
+import { useRouter } from 'next/navigation';
+import GuidelinesModal from '@/components/GuidelinesModal';
 
 interface KeywordResult {
   keyword: string;
@@ -16,6 +21,9 @@ export default function Keywords() {
   const [results, setResults] = useState<KeywordResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showGuidelines, setShowGuidelines] = useState(false);
+  const { toasts, success, error: toastError, removeToast } = useToast();
+  const router = useRouter();
 
   const handleAnalyze = async () => {
     if (!keyword.trim()) {
@@ -27,13 +35,9 @@ export default function Keywords() {
     setError('');
 
     try {
-      const response = await fetch('/api/proxy', {
+      const response = await apiCall('http://localhost:8000/api/keywords/analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
-          endpoint: '/api/keywords/analyze',
           keyword,
           country,
           max_results: 10
@@ -41,14 +45,21 @@ export default function Keywords() {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          toastError('API 키를 설정하세요');
+          router.push('/settings');
+          return;
+        }
         throw new Error('API 호출 실패');
       }
 
       const data = await response.json();
       setResults(data);
+      success(`${data.length}개의 키워드가 분석되었습니다.`);
     } catch (err) {
-      setError('키워드 분석 중 오류가 발생했습니다.');
-      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : '키워드 분석 중 오류가 발생했습니다.';
+      setError(errorMessage);
+      toastError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -71,10 +82,22 @@ export default function Keywords() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">키워드 분석</h1>
-          <p className="text-gray-600 mt-2">키워드 검색량, 경쟁도, 기회점수를 분석합니다</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">키워드 분석</h1>
+              <p className="text-gray-600 mt-2">키워드 검색량, 경쟁도, 기회점수를 분석합니다</p>
+            </div>
+            <button
+              onClick={() => setShowGuidelines(true)}
+              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 flex items-center"
+            >
+              <span className="mr-2">📋</span>
+              키워드 지침 보기
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -181,6 +204,12 @@ export default function Keywords() {
           </div>
         )}
       </div>
+      
+      <GuidelinesModal 
+        isOpen={showGuidelines}
+        onClose={() => setShowGuidelines(false)}
+        type="keyword_guidelines"
+      />
     </div>
   );
 }

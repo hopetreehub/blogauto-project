@@ -26,16 +26,7 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/proxy', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          endpoint: '/api/dashboard/stats',
-          method: 'GET'
-        })
-      });
+      const response = await fetch('http://localhost:8000/api/dashboard/stats');
 
       if (response.ok) {
         const data = await response.json();

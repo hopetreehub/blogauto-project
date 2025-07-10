@@ -1,10 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { useToast } from '@/hooks/useToast';
+import ToastContainer from '@/components/ToastContainer';
+import { apiCall } from '@/utils/api';
+import { useRouter } from 'next/navigation';
+import GuidelinesModal from '@/components/GuidelinesModal';
 
 interface TitleResult {
   title: string;
-  duplicate_rate: number;
+  duplicate_rate?: number;
+  score?: number;
+  reason?: string;
 }
 
 export default function TitlesPage() {
@@ -16,10 +23,13 @@ export default function TitlesPage() {
   const [results, setResults] = useState<TitleResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showGuidelines, setShowGuidelines] = useState(false);
+  const { toasts, success, error: toastError, removeToast } = useToast();
+  const router = useRouter();
 
   const generateTitles = async () => {
     if (!keyword.trim()) {
-      setError('키워드를 입력해주세요.');
+      toastError('키워드를 입력해주세요.');
       return;
     }
 
@@ -27,48 +37,88 @@ export default function TitlesPage() {
     setError('');
     
     try {
-      const response = await fetch('/api/proxy', {
+      const response = await apiCall('http://localhost:8000/api/titles/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
-          endpoint: '/api/titles/generate',
-          method: 'POST',
-          data: {
-            keyword: keyword.trim(),
-            length,
-            language,
-            tone,
-            count
-          }
+          keyword: keyword.trim(),
+          length,
+          language,
+          tone,
+          count
         })
       });
 
       if (!response.ok) {
-        throw new Error('제목 생성에 실패했습니다.');
+        const errorData = await response.json().catch(() => null);
+        let errorMessage = '제목 생성에 실패했습니다.';
+        
+        switch (response.status) {
+          case 400:
+            errorMessage = '입력 데이터가 올바르지 않습니다. 키워드를 확인해주세요.';
+            break;
+          case 401:
+            errorMessage = 'API 키가 설정되지 않았습니다. 설정 페이지에서 API 키를 입력해주세요.';
+            toastError('설정 페이지로 이동합니다.');
+            setTimeout(() => router.push('/settings'), 2000);
+            break;
+          case 429:
+            errorMessage = '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.';
+            break;
+          case 500:
+            errorMessage = '서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+            break;
+          default:
+            errorMessage = errorData?.message || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       setResults(data);
+      success(`${data.length}개의 제목이 성공적으로 생성되었습니다.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '오류가 발생했습니다.');
+      const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
+      
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        setError('네트워크 연결을 확인해주세요. 인터넷 연결이 불안정할 수 있습니다.');
+        toastError('네트워크 연결 오류');
+      } else {
+        setError(errorMessage);
+        toastError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    // TODO: 토스트 메시지 표시
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      success('제목이 클립보드에 복사되었습니다');
+    } catch {
+      toastError('복사에 실패했습니다');
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <div className="max-w-7xl mx-auto px-4">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">제목 생성</h1>
-          <p className="text-gray-600 mt-2">AI가 SEO 최적화된 매력적인 제목을 생성해드립니다</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">제목 생성</h1>
+              <p className="text-gray-600 mt-2">AI가 SEO 최적화된 매력적인 제목을 생성해드립니다</p>
+            </div>
+            <button
+              onClick={() => setShowGuidelines(true)}
+              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 flex items-center"
+            >
+              <span className="mr-2">📋</span>
+              제목 지침 보기
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6 mb-8">
@@ -162,9 +212,29 @@ export default function TitlesPage() {
             {loading ? '생성 중...' : '제목 생성'}
           </button>
 
-          {error && (
-            <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
-              {error}
+          {error && !loading && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-medium text-red-800">문제가 발생했습니다</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    {error}
+                  </div>
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setError('')}
+                      className="bg-red-100 text-red-800 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-200 transition-colors"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -190,16 +260,18 @@ export default function TitlesPage() {
                         </h3>
                         <div className="flex items-center text-sm text-gray-500">
                           <span className="mr-4">길이: {result.title.length}자</span>
-                          <span className="flex items-center">
-                            중복률: 
-                            <span className={`ml-1 px-2 py-1 rounded text-xs ${
-                              result.duplicate_rate < 5 ? 'bg-green-100 text-green-800' :
-                              result.duplicate_rate < 10 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {result.duplicate_rate.toFixed(1)}%
+                          {result.duplicate_rate !== undefined && (
+                            <span className="flex items-center">
+                              중복률: 
+                              <span className={`ml-1 px-2 py-1 rounded text-xs ${
+                                (result.duplicate_rate || 0) < 5 ? 'bg-green-100 text-green-800' :
+                                (result.duplicate_rate || 0) < 10 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {(result.duplicate_rate || 0).toFixed(1)}%
+                              </span>
                             </span>
-                          </span>
+                          )}
                         </div>
                       </div>
                       <button className="ml-4 p-2 hover:bg-gray-100 rounded">
@@ -215,6 +287,12 @@ export default function TitlesPage() {
           </div>
         )}
       </div>
+      
+      <GuidelinesModal 
+        isOpen={showGuidelines}
+        onClose={() => setShowGuidelines(false)}
+        type="title_guidelines"
+      />
     </div>
   );
 }
