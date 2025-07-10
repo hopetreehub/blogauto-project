@@ -33,6 +33,8 @@ export default function WordPressPage() {
   const [categories, setCategories] = useState<WordPressCategory[]>([]);
   const [tags, setTags] = useState<WordPressTag[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [scheduledPosts, setScheduledPosts] = useState([]);
+  const [showScheduledPosts, setShowScheduledPosts] = useState(false);
   
   const [publishForm, setPublishForm] = useState({
     title: '',
@@ -41,7 +43,12 @@ export default function WordPressPage() {
     categories: [] as number[],
     tags: [] as number[],
     generate_image: false,
-    image_prompt: ''
+    image_prompt: '',
+    publish_type: 'now', // 'now', 'schedule'
+    schedule_date: '',
+    schedule_time: '',
+    excerpt: '',
+    meta_description: ''
   });
 
   const { toasts, success, error: toastError, removeToast } = useToast();
@@ -88,6 +95,7 @@ export default function WordPressPage() {
         setConnectionStatus('success');
         success(`연결 성공! 사용자: ${data.user}`);
         await loadCategoriesAndTags();
+        await loadScheduledPosts();
       } else {
         setConnectionStatus('failed');
         toastError(`연결 실패: ${data.error}`);
@@ -117,7 +125,27 @@ export default function WordPressPage() {
     }
   };
 
-  // WordPress에 포스팅
+  // 컴포넌트 마운트 시 예약된 포스트 로드
+  useEffect(() => {
+    if (connectionStatus === 'success') {
+      loadScheduledPosts();
+    }
+  }, [connectionStatus]);
+
+  // 예약된 포스트 목록 불러오기
+  const loadScheduledPosts = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/wordpress/scheduled-posts');
+      const data = await response.json();
+      if (data.success) {
+        setScheduledPosts(data.scheduled_posts);
+      }
+    } catch (err) {
+      console.error('예약된 포스트 로드 실패:', err);
+    }
+  };
+
+  // WordPress에 포스팅 (즈시 또는 예약)
   const publishToWordPress = async () => {
     if (!publishForm.title || !publishForm.content) {
       toastError('제목과 콘텐츠를 입력해주세요.');
@@ -129,15 +157,56 @@ export default function WordPressPage() {
       return;
     }
 
+    // 예약 발행 유효성 검사
+    if (publishForm.publish_type === 'schedule') {
+      if (!publishForm.schedule_date || !publishForm.schedule_time) {
+        toastError('예약 날짜와 시간을 설정해주세요.');
+        return;
+      }
+
+      const scheduleDateTime = new Date(`${publishForm.schedule_date}T${publishForm.schedule_time}`);
+      if (scheduleDateTime <= new Date()) {
+        toastError('예약 시간은 현재 시간보다 이후여야 합니다.');
+        return;
+      }
+    }
+
     setPublishing(true);
 
     try {
-      const publishData = {
-        ...publishForm,
+      let endpoint = 'http://localhost:8000/api/wordpress/publish-now';
+      let publishData: any = {
+        title: publishForm.title,
+        content: publishForm.content,
+        status: publishForm.status,
+        categories: publishForm.categories,
+        tags: publishForm.tags,
+        generate_image: publishForm.generate_image,
+        image_prompt: publishForm.image_prompt,
+        excerpt: publishForm.excerpt,
+        meta_description: publishForm.meta_description,
         wp_config: wpConfig
       };
 
-      const response = await apiCall('http://localhost:8000/api/wordpress/publish', {
+      // 예약 발행인 경우
+      if (publishForm.publish_type === 'schedule') {
+        endpoint = 'http://localhost:8000/api/wordpress/schedule';
+        const scheduleDateTime = new Date(`${publishForm.schedule_date}T${publishForm.schedule_time}`);
+        publishData = {
+          title: publishForm.title,
+          content: publishForm.content,
+          categories: publishForm.categories,
+          tags: publishForm.tags,
+          generate_image: publishForm.generate_image,
+          image_prompt: publishForm.image_prompt,
+          excerpt: publishForm.excerpt,
+          meta_description: publishForm.meta_description,
+          publish_datetime: scheduleDateTime.toISOString(),
+          wp_config: wpConfig
+        };
+      }
+
+      const response = await apiCall(endpoint, {
         method: 'POST',
         body: JSON.stringify(publishData)
       });
@@ -145,7 +214,14 @@ export default function WordPressPage() {
       const result = await response.json();
 
       if (result.success) {
-        success(`포스팅 성공! 상태: ${result.status}`);
+        if (publishForm.publish_type === 'schedule') {
+          success(`예약 발행 성공! ${result.publish_datetime}에 자동 발행됩니다.`);
+          await loadScheduledPosts(); // 예약 목록 새로고침
+        } else {
+          success(`포스팅 성공! 상태: ${result.status_message}`);
+        }
+        
+        // 폼 초기화
         setPublishForm({
           title: '',
           content: '',
@@ -153,7 +229,12 @@ export default function WordPressPage() {
           categories: [],
           tags: [],
           generate_image: false,
-          image_prompt: ''
+          image_prompt: '',
+          publish_type: 'now',
+          schedule_date: '',
+          schedule_time: '',
+          excerpt: '',
+          meta_description: ''
         });
       } else {
         toastError(`포스팅 실패: ${result.error}`);
@@ -162,6 +243,25 @@ export default function WordPressPage() {
       toastError('포스팅 중 오류 발생');
     } finally {
       setPublishing(false);
+    }
+  };
+
+  // 예약 포스트 취소
+  const cancelScheduledPost = async (scheduleId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/wordpress/scheduled-posts/${scheduleId}`, {
+        method: 'DELETE'
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        success('예약이 취소되었습니다.');
+        await loadScheduledPosts();
+      } else {
+        toastError(`예약 취소 실패: ${result.error}`);
+      }
+    } catch (err) {
+      toastError('예약 취소 중 오류 발생');
     }
   };
 
@@ -290,13 +390,74 @@ export default function WordPressPage() {
                 />
               </div>
 
+              {/* 발행 유형 선택 */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">발행 유형</label>
+                <div className="flex space-x-4 mb-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="publish_type"
+                      value="now"
+                      checked={publishForm.publish_type === 'now'}
+                      onChange={(e) => setPublishForm({...publishForm, publish_type: e.target.value})}
+                      className="mr-2"
+                    />
+                    즈시 발행
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="publish_type"
+                      value="schedule"
+                      checked={publishForm.publish_type === 'schedule'}
+                      onChange={(e) => setPublishForm({...publishForm, publish_type: e.target.value})}
+                      className="mr-2"
+                    />
+                    예약 발행
+                  </label>
+                </div>
+
+                {/* 예약 발행 옵션 */}
+                {publishForm.publish_type === 'schedule' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-blue-50 rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        예약 날짜 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={publishForm.schedule_date}
+                        onChange={(e) => setPublishForm({...publishForm, schedule_date: e.target.value})}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        예약 시간 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={publishForm.schedule_time}
+                        onChange={(e) => setPublishForm({...publishForm, schedule_time: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">상태</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    상태 {publishForm.publish_type === 'schedule' ? '(예약시 자동 결정)' : ''}
+                  </label>
                   <select
                     value={publishForm.status}
                     onChange={(e) => setPublishForm({...publishForm, status: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={publishForm.publish_type === 'schedule'}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                   >
                     <option value="draft">임시저장</option>
                     <option value="publish">발행</option>
@@ -320,6 +481,35 @@ export default function WordPressPage() {
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* 추가 옵션 */}
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">발취문 (선택사항)</label>
+                  <textarea
+                    value={publishForm.excerpt}
+                    onChange={(e) => setPublishForm({...publishForm, excerpt: e.target.value})}
+                    placeholder="짧은 소개글 (검색 결과에 표시)"
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">메타 설명 (선택사항)</label>
+                  <textarea
+                    value={publishForm.meta_description}
+                    onChange={(e) => setPublishForm({...publishForm, meta_description: e.target.value})}
+                    placeholder="SEO를 위한 메타 설명 (150-160자 권장)"
+                    rows={2}
+                    maxLength={160}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="text-sm text-gray-500 mt-1">
+                    {publishForm.meta_description.length}/160자
+                  </div>
                 </div>
               </div>
 
@@ -365,9 +555,90 @@ export default function WordPressPage() {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 )}
-                {publishing ? 'WordPress에 발행 중...' : 'WordPress에 발행'}
+                {publishing ? (
+                  publishForm.publish_type === 'schedule' ? '예약 설정 중...' : 'WordPress에 발행 중...'
+                ) : (
+                  publishForm.publish_type === 'schedule' ? '예약 발행 설정' : 'WordPress에 즈시 발행'
+                )}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* 예약된 포스트 관리 */}
+        {connectionStatus === 'success' && (
+          <div className="bg-white rounded-lg shadow p-6 mt-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">예약된 포스트 관리</h2>
+              <div className="flex space-x-2">
+                <button
+                  onClick={loadScheduledPosts}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 text-sm"
+                >
+                  새로고침
+                </button>
+                <button
+                  onClick={() => setShowScheduledPosts(!showScheduledPosts)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
+                >
+                  {showScheduledPosts ? '숨기기' : '보기'} ({scheduledPosts.length})
+                </button>
+              </div>
+            </div>
+
+            {showScheduledPosts && (
+              <div className="space-y-4">
+                {scheduledPosts.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    예약된 포스트가 없습니다.
+                  </div>
+                ) : (
+                  scheduledPosts.map((post: any) => (
+                    <div key={post.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-gray-900 mb-2">{post.title}</h3>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <div>
+                              <span className="font-medium">예약 시간:</span> 
+                              {new Date(post.publish_date).toLocaleString('ko-KR', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                            <div>
+                              <span className="font-medium">상태:</span>
+                              <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                                post.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                                post.status === 'published' ? 'bg-green-100 text-green-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {post.status === 'scheduled' ? '예약됨' :
+                                 post.status === 'published' ? '발행됨' : '실패'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-2 ml-4">
+                          {post.status === 'scheduled' && (
+                            <button
+                              onClick={() => cancelScheduledPost(post.id)}
+                              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                            >
+                              취소
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

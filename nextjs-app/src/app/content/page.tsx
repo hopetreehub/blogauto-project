@@ -120,7 +120,7 @@ export default function ContentPage() {
     }
   };
 
-  const publishToWordPress = async () => {
+  const publishToWordPress = async (publishType: 'now' | 'schedule' = 'now', scheduleDate?: string) => {
     if (!result) {
       toastError('먼저 콘텐츠를 생성해주세요.');
       return;
@@ -149,10 +149,11 @@ export default function ContentPage() {
     setPublishingToWP(true);
 
     try {
-      const publishData = {
+      let endpoint = 'http://localhost:8000/api/wordpress/publish-now';
+      let publishData: any = {
         title: title,
         content: result.content,
-        status: 'draft',
+        status: 'publish',
         categories: [],
         tags: [],
         generate_image: true,
@@ -160,7 +161,22 @@ export default function ContentPage() {
         wp_config: wpConfig
       };
 
-      const response = await apiCall('http://localhost:8000/api/wordpress/publish', {
+      // 예약 발행인 경우
+      if (publishType === 'schedule' && scheduleDate) {
+        endpoint = 'http://localhost:8000/api/wordpress/schedule';
+        publishData = {
+          title: title,
+          content: result.content,
+          categories: [],
+          tags: [],
+          generate_image: true,
+          image_prompt: title,
+          publish_datetime: scheduleDate,
+          wp_config: wpConfig
+        };
+      }
+
+      const response = await apiCall(endpoint, {
         method: 'POST',
         body: JSON.stringify(publishData)
       });
@@ -168,7 +184,11 @@ export default function ContentPage() {
       const resultData = await response.json();
 
       if (resultData.success) {
-        success(`WordPress에 성공적으로 발행되었습니다! 상태: ${resultData.status}`);
+        if (publishType === 'schedule') {
+          success(`WordPress 예약 발행 성공! ${new Date(scheduleDate!).toLocaleString('ko-KR')}에 자동 발행됩니다.`);
+        } else {
+          success(`WordPress에 성공적으로 발행되었습니다! 상태: ${resultData.status_message}`);
+        }
       } else {
         toastError(`WordPress 발행 실패: ${resultData.error}`);
       }
@@ -176,6 +196,49 @@ export default function ContentPage() {
       toastError('WordPress 발행 중 오류가 발생했습니다.');
     } finally {
       setPublishingToWP(false);
+    }
+  };
+
+  const showPublishOptions = () => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const scheduleOptions = [
+      { label: '지금 즈시 발행', action: () => publishToWordPress('now') },
+      { label: '1시간 후 발행', action: () => {
+        const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+        publishToWordPress('schedule', oneHourLater.toISOString());
+      }},
+      { label: '내일 오전 9시 발행', action: () => {
+        const tomorrow9AM = new Date(tomorrow);
+        tomorrow9AM.setHours(9, 0, 0, 0);
+        publishToWordPress('schedule', tomorrow9AM.toISOString());
+      }},
+      { label: '사용자 지정 예약', action: () => {
+        const customDate = prompt('예약 날짜와 시간을 입력해주세요 (YYYY-MM-DD HH:MM)', 
+          tomorrow.toISOString().slice(0, 16).replace('T', ' '));
+        if (customDate) {
+          const scheduleDateTime = new Date(customDate.replace(' ', 'T'));
+          if (scheduleDateTime > now) {
+            publishToWordPress('schedule', scheduleDateTime.toISOString());
+          } else {
+            toastError('예약 시간은 현재 시간보다 이후여야 합니다.');
+          }
+        }
+      }}
+    ];
+
+    // 간단한 옵션 메뉴 표시
+    const optionsList = scheduleOptions.map((option, index) => 
+      `${index + 1}. ${option.label}`
+    ).join('\n');
+    
+    const choice = prompt(`WordPress 발행 옵션을 선택해주세요:\n\n${optionsList}\n\n번호를 입력하세요:`);
+    
+    const choiceIndex = parseInt(choice || '0') - 1;
+    if (choiceIndex >= 0 && choiceIndex < scheduleOptions.length) {
+      scheduleOptions[choiceIndex].action();
     }
   };
 
@@ -303,7 +366,7 @@ export default function ContentPage() {
                     다운로드
                   </button>
                   <button
-                    onClick={publishToWordPress}
+                    onClick={showPublishOptions}
                     disabled={publishingToWP}
                     className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm disabled:opacity-50 flex items-center"
                   >
@@ -313,7 +376,7 @@ export default function ContentPage() {
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                     )}
-                    {publishingToWP ? '발행 중...' : 'WordPress 발행'}
+                    {publishingToWP ? '발행 중...' : 'WordPress 발행 옵션'}
                   </button>
                 </div>
               </div>

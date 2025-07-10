@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Annotated
 import uvicorn
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import openai
 import re
@@ -12,6 +12,7 @@ import requests
 import base64
 from urllib.parse import urljoin
 import mimetypes
+from wordpress_module import wordpress_module, WordPressPost as WPPost, WordPressConfig as WPConfig
 
 app = FastAPI(title="블로그 자동화 API (실제 버전)")
 
@@ -77,10 +78,25 @@ class WordPressConfig(BaseModel):
 class WordPressPost(BaseModel):
     title: str
     content: str
-    status: str = "draft"  # draft, publish, private
+    status: str = "draft"  # draft, publish, private, future
     categories: list = []
     tags: list = []
     featured_image_url: str = None
+    publish_date: str = None  # ISO 형식 날짜 (예약 발행용)
+    excerpt: str = None
+    meta_description: str = None
+
+class ScheduledPostRequest(BaseModel):
+    title: str
+    content: str
+    wp_config: dict
+    publish_datetime: str  # ISO 형식: "2025-01-15T10:00:00"
+    categories: list = []
+    tags: list = []
+    generate_image: bool = False
+    image_prompt: str = None
+    excerpt: str = None
+    meta_description: str = None
 
 class ImageGenerationRequest(BaseModel):
     prompt: str
@@ -596,7 +612,8 @@ async def test_wp_connection(
     x_openai_key: Annotated[str | None, Header()] = None
 ):
     """WordPress 연결 테스트"""
-    result = await test_wordpress_connection(wp_config)
+    wp_cfg = WPConfig(**wp_config.dict())
+    result = await wordpress_module.test_connection(wp_cfg)
     return result
 
 @app.post("/api/wordpress/publish")
@@ -747,6 +764,147 @@ async def get_wp_tags(
             "success": False,
             "error": f"태그 조회 오류: {str(e)}"
         }
+
+@app.post("/api/wordpress/schedule")
+async def schedule_wordpress_post(
+    request: ScheduledPostRequest,
+    x_openai_key: Annotated[str | None, Header()] = None
+):
+    """WordPress 예약 발행"""
+    if not x_openai_key:
+        raise HTTPException(status_code=401, detail="OpenAI API 키가 필요합니다.")
+    
+    try:
+        # 예약 시간 파싱
+        try:
+            publish_datetime = datetime.fromisoformat(request.publish_datetime.replace('Z', '+00:00'))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="잘못된 날짜 형식입니다. ISO 형식을 사용하세요 (예: 2025-01-15T10:00:00)")
+        
+        # WordPress 설정 검증
+        wp_config = WPConfig(**request.wp_config)
+        
+        # 이미지 생성 여부 확인
+        featured_image_url = None
+        if request.generate_image:
+            image_prompt = request.image_prompt or request.title
+            featured_image_url = await generate_image_with_openai(
+                image_prompt, 
+                x_openai_key,
+                "1024x1024",
+                "standard"
+            )
+        
+        # WordPress 포스트 데이터 준비
+        post_data = WPPost(
+            title=request.title,
+            content=request.content,
+            status='future',  # 예약 발행용
+            categories=request.categories,
+            tags=request.tags,
+            featured_image_url=featured_image_url,
+            publish_date=publish_datetime.isoformat(),
+            excerpt=request.excerpt,
+            meta_description=request.meta_description
+        )
+        
+        # 예약 발행 실행
+        result = await wordpress_module.schedule_post(post_data, wp_config, publish_datetime)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"예약 발행 중 오류 발생: {str(e)}")
+
+@app.post("/api/wordpress/publish-now")
+async def publish_wordpress_now(
+    request: dict,
+    x_openai_key: Annotated[str | None, Header()] = None
+):
+    """WordPress 즉시 발행 (기존 publish 엔드포인트 개선)"""
+    if not x_openai_key:
+        raise HTTPException(status_code=401, detail="OpenAI API 키가 필요합니다.")
+    
+    try:
+        # 요청 데이터 검증
+        required_fields = ['title', 'content', 'wp_config']
+        for field in required_fields:
+            if field not in request:
+                raise HTTPException(status_code=400, detail=f"필수 필드 '{field}'가 누락되었습니다.")
+        
+        # WordPress 설정 검증
+        wp_config = WPConfig(**request['wp_config'])
+        
+        # 이미지 생성 여부 확인
+        featured_image_url = None
+        if request.get('generate_image', False):
+            image_prompt = request.get('image_prompt', request['title'])
+            featured_image_url = await generate_image_with_openai(
+                image_prompt, 
+                x_openai_key,
+                request.get('image_size', '1024x1024'),
+                request.get('image_quality', 'standard')
+            )
+        
+        # WordPress 포스트 데이터 준비
+        post_data = WPPost(
+            title=request['title'],
+            content=request['content'],
+            status=request.get('status', 'publish'),  # 기본값: 즉시 발행
+            categories=request.get('categories', []),
+            tags=request.get('tags', []),
+            featured_image_url=featured_image_url,
+            excerpt=request.get('excerpt'),
+            meta_description=request.get('meta_description')
+        )
+        
+        # WordPress에 발행
+        result = await wordpress_module.publish_post(post_data, wp_config)
+        
+        if result['success']:
+            stats["posts_published"] += 1
+            
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"발행 중 오류 발생: {str(e)}")
+
+@app.get("/api/wordpress/scheduled-posts")
+async def get_scheduled_posts():
+    """예약된 포스트 목록 조회"""
+    return wordpress_module.get_scheduled_posts()
+
+@app.delete("/api/wordpress/scheduled-posts/{schedule_id}")
+async def cancel_scheduled_post(schedule_id: str):
+    """예약된 포스트 취소"""
+    result = await wordpress_module.cancel_scheduled_post(schedule_id)
+    return result
+
+@app.get("/api/wordpress/categories")
+async def get_wp_categories_new(
+    site_url: str,
+    username: str,
+    password: str
+):
+    """WordPress 카테고리 목록 가져오기 (모듈 사용)"""
+    wp_config = WPConfig(site_url=site_url, username=username, password=password)
+    result = await wordpress_module.get_categories(wp_config)
+    return result
+
+@app.get("/api/wordpress/tags")
+async def get_wp_tags_new(
+    site_url: str,
+    username: str,
+    password: str
+):
+    """WordPress 태그 목록 가져오기 (모듈 사용)"""
+    wp_config = WPConfig(site_url=site_url, username=username, password=password)
+    result = await wordpress_module.get_tags(wp_config)
+    return result
 
 if __name__ == "__main__":
     print("🚀 실제 API 서버 시작 (간소화 버전)...")
