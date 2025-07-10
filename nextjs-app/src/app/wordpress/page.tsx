@@ -317,9 +317,17 @@ export default function WordPressPage() {
                 placeholder="WordPress 애플리케이션 비밀번호"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <p className="text-sm text-gray-500 mt-1">
-                WordPress 관리자 → 사용자 → 프로필에서 애플리케이션 비밀번호를 생성하세요
-              </p>
+              <div className="text-sm text-gray-500 mt-1 space-y-1">
+                <p>📝 WordPress 애플리케이션 비밀번호 생성 방법:</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>WordPress 관리자 페이지 로그인</li>
+                  <li>"사용자" → "프로필" 또는 "모든 사용자" 메뉴</li>
+                  <li>"애플리케이션 비밀번호" 섹션으로 이동</li>
+                  <li>"새 애플리케이션 비밀번호 추가" 클릭</li>
+                  <li>생성된 비밀번호를 복사하여 위에 입력</li>
+                </ol>
+                <p className="text-amber-600 font-medium">⚠️ 일반 로그인 비밀번호가 아닌 애플리케이션 비밀번호를 사용해야 합니다!</p>
+              </div>
             </div>
           </div>
 
@@ -343,15 +351,33 @@ export default function WordPressPage() {
           {/* 연결 상태 표시 */}
           {connectionResult && (
             <div className={`mt-4 p-4 rounded-lg ${connectionResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <div className="flex items-center">
-                <div className={`w-3 h-3 rounded-full mr-3 ${connectionResult.success ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <div>
+              <div className="flex items-start">
+                <div className={`w-3 h-3 rounded-full mr-3 mt-1 ${connectionResult.success ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <div className="flex-1">
                   <p className={`font-medium ${connectionResult.success ? 'text-green-800' : 'text-red-800'}`}>
                     {connectionResult.success ? '연결 성공' : '연결 실패'}
                   </p>
-                  <p className={`text-sm ${connectionResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                    {connectionResult.success ? `사용자: ${connectionResult.user}` : connectionResult.error}
-                  </p>
+                  
+                  {connectionResult.success ? (
+                    <div className="text-sm text-green-600 space-y-1">
+                      <p>사용자: {connectionResult.user}</p>
+                      <p>사이트: {connectionResult.site_name}</p>
+                      {connectionResult.user_id && <p>ID: {connectionResult.user_id}</p>}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-red-600 space-y-2">
+                      <p className="font-medium">오류: {connectionResult.error}</p>
+                      {connectionResult.suggestion && (
+                        <div className="bg-red-50 p-3 rounded border border-red-200">
+                          <p className="font-medium text-red-800 mb-1">해결 방법:</p>
+                          <p className="text-red-700">{connectionResult.suggestion}</p>
+                        </div>
+                      )}
+                      {connectionResult.error_code && (
+                        <p className="text-xs text-red-500">오류 코드: {connectionResult.error_code}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

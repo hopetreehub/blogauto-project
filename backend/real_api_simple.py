@@ -612,7 +612,7 @@ async def test_wp_connection(
     x_openai_key: Annotated[str | None, Header()] = None
 ):
     """WordPress 연결 테스트"""
-    wp_cfg = WPConfig(**wp_config.dict())
+    wp_cfg = WPConfig(**wp_config.model_dump())
     result = await wordpress_module.test_connection(wp_cfg)
     return result
 

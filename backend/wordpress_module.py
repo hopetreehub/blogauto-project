@@ -64,7 +64,24 @@ class WordPressModule:
     async def test_connection(self, wp_config: WordPressConfig) -> Dict[str, Any]:
         """WordPress 연결 테스트"""
         try:
-            wp_url = urljoin(wp_config.site_url, '/wp-json/wp/v2/users/me')
+            # 사이트 URL 정규화
+            site_url = wp_config.site_url.rstrip('/')
+            if not site_url.startswith(('http://', 'https://')):
+                site_url = 'https://' + site_url
+            
+            # 1단계: REST API 기본 엔드포인트 테스트
+            rest_url = urljoin(site_url, '/wp-json/wp/v2')
+            basic_response = requests.get(rest_url, timeout=15)
+            
+            if basic_response.status_code != 200:
+                return {
+                    'success': False,
+                    'error': f'WordPress REST API에 접근할 수 없습니다 ({basic_response.status_code})',
+                    'suggestion': 'WordPress 사이트 URL이 올바른지 확인하고, REST API가 활성화되어 있는지 확인하세요.'
+                }
+            
+            # 2단계: 인증 테스트
+            wp_url = urljoin(site_url, '/wp-json/wp/v2/users/me')
             headers = self._get_auth_headers(wp_config)
             headers.pop('Content-Type')  # GET 요청에서는 불필요
             
@@ -74,7 +91,7 @@ class WordPressModule:
                 user_data = response.json()
                 
                 # 캐시에 저장
-                cache_key = f"{wp_config.site_url}:{wp_config.username}"
+                cache_key = f"{site_url}:{wp_config.username}"
                 self.auth_cache[cache_key] = {
                     'valid': True,
                     'user_data': user_data,
@@ -85,32 +102,60 @@ class WordPressModule:
                     'success': True,
                     'user': user_data.get('name', '알 수 없음'),
                     'user_id': user_data.get('id'),
-                    'site_name': wp_config.site_url,
-                    'capabilities': user_data.get('capabilities', {})
+                    'site_name': site_url,
+                    'capabilities': user_data.get('capabilities', {}),
+                    'rest_api_available': True
+                }
+            elif response.status_code == 401:
+                error_data = {}
+                try:
+                    error_data = response.json()
+                except:
+                    pass
+                    
+                error_msg = error_data.get('message', '인증 실패')
+                
+                return {
+                    'success': False,
+                    'error': f'인증 오류 (401): {error_msg}',
+                    'suggestion': 'WordPress 애플리케이션 비밀번호를 확인하세요. WordPress 관리자 → 사용자 → 프로필에서 새 애플리케이션 비밀번호를 생성하세요.',
+                    'username': wp_config.username,
+                    'site_url': site_url,
+                    'error_code': error_data.get('code', 'unknown')
+                }
+            elif response.status_code == 403:
+                return {
+                    'success': False,
+                    'error': '권한 부족 (403): 사용자에게 충분한 권한이 없습니다',
+                    'suggestion': '관리자 권한이 있는 사용자를 사용하세요.'
                 }
             else:
                 logger.error(f"WordPress 연결 실패: {response.status_code} - {response.text}")
                 return {
                     'success': False,
-                    'error': f"연결 실패: {response.status_code}",
-                    'details': response.text[:200]
+                    'error': f"연결 실패: HTTP {response.status_code}",
+                    'details': response.text[:200],
+                    'suggestion': 'WordPress 사이트와 인증 정보를 다시 확인해주세요.'
                 }
                 
         except requests.exceptions.Timeout:
             return {
                 'success': False,
-                'error': "연결 시간 초과 (30초)"
+                'error': "연결 시간 초과 (30초)",
+                'suggestion': '사이트가 느리거나 응답하지 않습니다. 사이트 URL을 확인하세요.'
             }
         except requests.exceptions.ConnectionError:
             return {
                 'success': False,
-                'error': "연결 오류: 사이트에 접근할 수 없습니다"
+                'error': "연결 오류: 사이트에 접근할 수 없습니다",
+                'suggestion': 'WordPress 사이트 URL이 올바른지 확인하고, 인터넷 연결을 확인하세요.'
             }
         except Exception as e:
             logger.error(f"WordPress 연결 테스트 오류: {str(e)}")
             return {
                 'success': False,
-                'error': f"연결 오류: {str(e)}"
+                'error': f"연결 오류: {str(e)}",
+                'suggestion': '사이트 URL과 인증 정보를 다시 확인해주세요.'
             }
     
     async def upload_image_to_wordpress(self, image_url: str, wp_config: WordPressConfig, filename: str = None) -> Optional[Dict[str, Any]]:
