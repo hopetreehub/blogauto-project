@@ -7,6 +7,8 @@
 # Dependencies
 node_modules/
 venv/
+*venv*/
+test_env/
 __pycache__/
 *.pyc
 *.pyo
@@ -14,6 +16,12 @@ __pycache__/
 .Python
 pip-log.txt
 pip-delete-this-directory.txt
+
+# Large binary files (100MB+ GitHub limit)
+*.node
+playwright/driver/
+chromedriver*
+geckodriver*
 
 # Build outputs
 build/
