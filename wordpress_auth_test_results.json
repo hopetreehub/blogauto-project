@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-07-12T02:53:50.462864",
+  "site": "innerspell.com",
+  "username": "banana",
+  "results": {
+    "basic_auth": false,
+    "app_password": false,
+    "anonymous_posts": true,
+    "anonymous_categories": true,
+    "login_page": true,
+    "alternative_format": false,
+    "post_creation": true
+  },
+  "successful_methods": [
+    "anonymous_posts",
+    "anonymous_categories",
+    "login_page",
+    "post_creation"
+  ]
+}

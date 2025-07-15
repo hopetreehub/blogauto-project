@@ -27,6 +27,7 @@ export default function WordPressPage() {
     username: '',
     password: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   
   const [connectionStatus, setConnectionStatus] = useState<'none' | 'testing' | 'success' | 'failed'>('none');
   const [connectionResult, setConnectionResult] = useState<any>(null);
@@ -35,6 +36,8 @@ export default function WordPressPage() {
   const [publishing, setPublishing] = useState(false);
   const [scheduledPosts, setScheduledPosts] = useState([]);
   const [showScheduledPosts, setShowScheduledPosts] = useState(false);
+  const [debugging, setDebugging] = useState(false);
+  const [debugResults, setDebugResults] = useState<any>(null);
   
   const [publishForm, setPublishForm] = useState({
     title: '',
@@ -265,6 +268,37 @@ export default function WordPressPage() {
     }
   };
 
+  // 고급 디버깅 테스트
+  const runDebugTest = async () => {
+    if (!wpConfig.site_url || !wpConfig.username || !wpConfig.password) {
+      toastError('모든 WordPress 설정을 입력해주세요.');
+      return;
+    }
+
+    setDebugging(true);
+    setDebugResults(null);
+
+    try {
+      const response = await apiCall('http://localhost:8000/api/wordpress/debug-auth', {
+        method: 'POST',
+        body: JSON.stringify(wpConfig)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setDebugResults(result);
+        success('디버깅 테스트가 완료되었습니다. 결과를 확인하세요.');
+      } else {
+        toastError(`디버깅 실패: ${result.error}`);
+      }
+    } catch (err) {
+      toastError('디버깅 중 오류 발생');
+    } finally {
+      setDebugging(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
@@ -310,13 +344,22 @@ export default function WordPressPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 애플리케이션 비밀번호 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="password"
-                value={wpConfig.password}
-                onChange={(e) => setWpConfig({...wpConfig, password: e.target.value})}
-                placeholder="WordPress 애플리케이션 비밀번호"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={wpConfig.password}
+                  onChange={(e) => setWpConfig({...wpConfig, password: e.target.value})}
+                  placeholder="WordPress 애플리케이션 비밀번호"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? '숨기기' : '보기'}
+                </button>
+              </div>
               <div className="text-sm text-gray-500 mt-1 space-y-1">
                 <p>📝 WordPress 애플리케이션 비밀번호 생성 방법:</p>
                 <ol className="list-decimal list-inside space-y-1 ml-2">
@@ -327,6 +370,26 @@ export default function WordPressPage() {
                   <li>생성된 비밀번호를 복사하여 위에 입력</li>
                 </ol>
                 <p className="text-amber-600 font-medium">⚠️ 일반 로그인 비밀번호가 아닌 애플리케이션 비밀번호를 사용해야 합니다!</p>
+                
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-blue-800 font-bold mb-2">💡 권장 해결 방법:</p>
+                  <ol className="list-decimal list-inside text-blue-700 space-y-2 text-sm">
+                    <li><strong>miniOrange API Authentication</strong> 플러그인 설치 (가장 쉬움)</li>
+                    <li>또는 <strong>JWT Authentication for WP REST API</strong> 플러그인 설치</li>
+                    <li>또는 <strong>Basic Auth</strong> 플러그인 설치 + .htaccess 수정</li>
+                  </ol>
+                </div>
+                
+                {/* 비밀번호 분석 정보 */}
+                {wpConfig.password && (
+                  <div className="mt-2 p-2 bg-gray-100 rounded text-xs space-y-1">
+                    <p>입력된 비밀번호 정보:</p>
+                    <p>• 길이: {wpConfig.password.length}자</p>
+                    <p>• 공백 포함: {wpConfig.password.includes(' ') ? '예' : '아니오'}</p>
+                    <p>• 공백 제거 시 길이: {wpConfig.password.replace(/ /g, '').length}자</p>
+                    <p>• Application Password 형식: {wpConfig.password.replace(/ /g, '').length === 24 ? '✅ 올바름' : '❌ 틀림 (24자여야 함)'}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -345,6 +408,14 @@ export default function WordPressPage() {
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50"
             >
               {connectionStatus === 'testing' ? '테스트 중...' : '연결 테스트'}
+            </button>
+            
+            <button
+              onClick={runDebugTest}
+              disabled={debugging || !wpConfig.site_url || !wpConfig.username || !wpConfig.password}
+              className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 disabled:opacity-50"
+            >
+              {debugging ? '디버깅 중...' : '고급 디버깅'}
             </button>
           </div>
 
@@ -367,12 +438,50 @@ export default function WordPressPage() {
                   ) : (
                     <div className="text-sm text-red-600 space-y-2">
                       <p className="font-medium">오류: {connectionResult.error}</p>
-                      {connectionResult.suggestion && (
-                        <div className="bg-red-50 p-3 rounded border border-red-200">
-                          <p className="font-medium text-red-800 mb-1">해결 방법:</p>
-                          <p className="text-red-700">{connectionResult.suggestion}</p>
+                      
+                      {/* LiteSpeed 서버 401 오류 특별 처리 */}
+                      {connectionResult.status_code === 401 && connectionResult.error.includes('로그인 상태가 아닙니다') && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-3">
+                          <h4 className="font-bold text-yellow-800 mb-2">🚨 LiteSpeed 서버 설정 필요!</h4>
+                          <div className="text-yellow-700 space-y-3">
+                            <div>
+                              <p className="font-semibold">1. .htaccess 파일 수정:</p>
+                              <pre className="bg-gray-800 text-white p-2 rounded mt-1 text-xs overflow-x-auto">
+{`# WordPress 루트 디렉토리 .htaccess 맨 위에 추가
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>`}
+                              </pre>
+                            </div>
+                            
+                            <div>
+                              <p className="font-semibold">2. wp-config.php 파일 수정:</p>
+                              <pre className="bg-gray-800 text-white p-2 rounded mt-1 text-xs overflow-x-auto">
+{`// /* That's all, stop editing! */ 위에 추가
+if (!isset($_SERVER['HTTP_AUTHORIZATION'])) {
+    if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+    }
+}`}
+                              </pre>
+                            </div>
+                            
+                            <div className="bg-blue-50 p-3 rounded">
+                              <p className="text-blue-800 font-medium">💡 위 설정을 적용한 후에도 안 된다면:</p>
+                              <p className="text-blue-700 text-sm mt-1">"JSON Basic Authentication" 플러그인을 설치하세요.</p>
+                            </div>
+                          </div>
                         </div>
                       )}
+                      
+                      {connectionResult.suggestion && !connectionResult.error.includes('로그인 상태가 아닙니다') && (
+                        <div className="bg-red-50 p-3 rounded border border-red-200">
+                          <p className="font-medium text-red-800 mb-1">해결 방법:</p>
+                          <p className="text-red-700 whitespace-pre-line">{connectionResult.suggestion}</p>
+                        </div>
+                      )}
+                      
                       {connectionResult.error_code && (
                         <p className="text-xs text-red-500">오류 코드: {connectionResult.error_code}</p>
                       )}
@@ -587,6 +696,77 @@ export default function WordPressPage() {
                   publishForm.publish_type === 'schedule' ? '예약 발행 설정' : 'WordPress에 즈시 발행'
                 )}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* 디버깅 결과 */}
+        {debugResults && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">고급 디버깅 결과</h2>
+              <button
+                onClick={() => setDebugResults(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* 권장사항 */}
+              {debugResults.recommendations && debugResults.recommendations.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h3 className="font-medium text-yellow-800 mb-3">해결 방법 및 권장사항</h3>
+                  <div className="space-y-3">
+                    {debugResults.recommendations.map((rec: any, index: number) => (
+                      <div key={index} className={`p-3 rounded border-l-4 ${
+                        rec.priority === 'high' ? 'border-red-400 bg-red-50' :
+                        rec.priority === 'medium' ? 'border-yellow-400 bg-yellow-50' :
+                        'border-blue-400 bg-blue-50'
+                      }`}>
+                        <div className="font-medium text-gray-800">{rec.issue}</div>
+                        <div className="text-sm text-gray-600 mt-1 whitespace-pre-line">{rec.solution}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 상세 테스트 결과 */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-medium text-gray-800 mb-3">상세 테스트 결과</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {debugResults.debug_results && Object.entries(debugResults.debug_results.tests).map(([testName, testResult]: [string, any]) => (
+                    <div key={testName} className="bg-white p-3 rounded border">
+                      <div className="font-medium text-gray-700 capitalize">
+                        {testName.replace('_', ' ')}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        {testResult.success ? (
+                          <span className="text-green-600">✓ 성공</span>
+                        ) : (
+                          <span className="text-red-600">✗ 실패</span>
+                        )}
+                        {testResult.status_code && (
+                          <span className="ml-2">(코드: {testResult.status_code})</span>
+                        )}
+                      </div>
+                      {testResult.error && (
+                        <div className="text-xs text-red-500 mt-1">{testResult.error}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 원시 데이터 */}
+              <details className="bg-gray-100 rounded-lg p-3">
+                <summary className="cursor-pointer font-medium text-gray-700">원시 디버깅 데이터 보기</summary>
+                <pre className="mt-3 text-xs text-gray-600 overflow-auto max-h-96">
+                  {JSON.stringify(debugResults.debug_results, null, 2)}
+                </pre>
+              </details>
             </div>
           </div>
         )}

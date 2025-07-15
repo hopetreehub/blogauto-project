@@ -1,0 +1,133 @@
+{
+  "test_timestamp": "2025-07-12T01:55:48.084863",
+  "test_duration": 0.5360629558563232,
+  "overall_status": "poor",
+  "test_results": {
+    "system_health": {
+      "backend": {
+        "status": "unhealthy",
+        "code": 404
+      },
+      "database": {
+        "status": "disconnected"
+      },
+      "redis": {
+        "status": "disconnected"
+      },
+      "monitoring": {
+        "status": "inactive"
+      }
+    },
+    "core_functionality": {
+      "keyword_analysis": {
+        "status": "error",
+        "error": "'list' object has no attribute 'get'"
+      },
+      "title_generation": {
+        "status": "failed",
+        "code": 401
+      },
+      "content_generation": {
+        "status": "failed",
+        "code": 401
+      }
+    },
+    "security_features": {
+      "rate_limiting": {
+        "status": "active",
+        "total_requests": 65,
+        "rate_limited_count": 21
+      },
+      "cors": {
+        "status": "configured",
+        "headers": {
+          "access_control_allow_origin": null,
+          "access_control_allow_methods": null,
+          "access_control_allow_headers": null
+        }
+      },
+      "security_headers": {
+        "status": "present",
+        "headers": {
+          "x_content_type_options": null,
+          "x_frame_options": null,
+          "x_xss_protection": null
+        }
+      }
+    },
+    "performance_systems": {
+      "caching": {
+        "status": "working",
+        "first_request_time": 0.0009152889251708984,
+        "second_request_time": 0.0006506443023681641,
+        "speedup": 1.4067423964822279,
+        "cache_effective": true
+      },
+      "compression": {
+        "status": "inactive",
+        "content_encoding": "",
+        "compressed_size": 67
+      },
+      "connection_pooling": {
+        "status": "unavailable"
+      }
+    },
+    "monitoring_systems": {
+      "prometheus": {
+        "status": "inactive"
+      },
+      "performance_summary": {
+        "status": "unavailable"
+      },
+      "health_detailed": {
+        "status": "unavailable"
+      }
+    },
+    "data_flow_integration": {
+      "end_to_end_workflow": {
+        "status": "partial",
+        "steps": {
+          "keyword_analysis": {
+            "success": false,
+            "time": 0.0006384849548339844,
+            "search_volume": 0
+          },
+          "title_generation": {
+            "success": false,
+            "time": 0.0006582736968994141,
+            "title_count": 0
+          },
+          "content_generation": {
+            "success": false,
+            "time": 0.0006644725799560547,
+            "word_count": 0
+          }
+        },
+        "total_time": 0.001961231231689453,
+        "data_consistency": {
+          "keyword_used": "데이터흐름테스트",
+          "title_generated": "기본 제목",
+          "content_created": false
+        }
+      }
+    },
+    "stress_conditions": {
+      "concurrent_requests": {
+        "status": "completed",
+        "total_requests": 20,
+        "successful_requests": 0,
+        "success_rate": 0.0,
+        "avg_response_time": 0.007676947116851807,
+        "total_time": 0.013654708862304688,
+        "requests_per_second": 1464.6961866182428
+      },
+      "memory_intensive": {
+        "status": "completed",
+        "response_status": 429,
+        "response_time": 0.0015461444854736328,
+        "handled_large_request": false,
+        "keyword_length": 60
+      }
+    }
+  }
+}

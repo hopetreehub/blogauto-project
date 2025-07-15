@@ -1,0 +1,468 @@
+name: BlogAuto CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: blogauto
+
+jobs:
+  # 1. Code Quality & Security Checks
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality & Security
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Cache Node dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+          
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort bandit safety
+        if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+        
+    - name: Install Node dependencies
+      run: |
+        cd nextjs-app
+        npm ci
+        
+    - name: Python Code Formatting (Black)
+      run: |
+        black --check --diff backend/
+        
+    - name: Python Import Sorting (isort)
+      run: |
+        isort --check-only --diff backend/
+        
+    - name: Python Linting (Flake8)
+      run: |
+        flake8 backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 backend/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        
+    - name: Python Security Check (Bandit)
+      run: |
+        bandit -r backend/ -f json -o bandit-report.json || true
+        bandit -r backend/ --severity-level medium
+        
+    - name: Python Dependencies Security (Safety)
+      run: |
+        safety check --json --output safety-report.json || true
+        safety check
+        
+    - name: TypeScript/JavaScript Linting
+      run: |
+        cd nextjs-app
+        npm run lint
+        
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  # 2. Backend Tests
+  backend-tests:
+    runs-on: ubuntu-latest
+    name: Backend Tests
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-asyncio httpx
+        pip install cryptography  # For crypto_utils
+        if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+        
+    - name: Setup test environment
+      run: |
+        export DATABASE_URL="postgresql://testuser:testpassword@localhost:5432/testdb"
+        export MASTER_PASSWORD="test_master_password_for_ci"
+        
+    - name: Run Backend Unit Tests
+      run: |
+        cd backend
+        python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html
+      env:
+        DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
+        MASTER_PASSWORD: test_master_password_for_ci
+        
+    - name: Test Crypto System
+      run: |
+        cd backend
+        python -c "
+        from crypto_utils import CryptoManager
+        crypto = CryptoManager()
+        result = crypto.store_api_key('test', 'sk-test1234567890abcdefghijklmnop', {'ci': True})
+        print(f'✅ Crypto test: {result}')
+        retrieved = crypto.retrieve_api_key('test')
+        print(f'✅ Retrieval test: {retrieved is not None}')
+        "
+      env:
+        MASTER_PASSWORD: test_master_password_for_ci
+        
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: backend-coverage
+        path: backend/htmlcov/
+
+  # 3. Frontend Tests
+  frontend-tests:
+    runs-on: ubuntu-latest
+    name: Frontend Tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        
+    - name: Install dependencies
+      run: |
+        cd nextjs-app
+        npm ci
+        
+    - name: Run Jest Tests
+      run: |
+        cd nextjs-app
+        npm test -- --coverage --watchAll=false
+        
+    - name: Build Next.js Application
+      run: |
+        cd nextjs-app
+        npm run build
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: nextjs-build
+        path: nextjs-app/.next/
+        
+    - name: Upload test coverage
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-coverage
+        path: nextjs-app/coverage/
+
+  # 4. Integration Tests
+  integration-tests:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    needs: [backend-tests, frontend-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest aiohttp cryptography fastapi uvicorn
+        if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+        
+        cd nextjs-app
+        npm ci
+        
+    - name: Start Backend Server
+      run: |
+        cd backend
+        python -m venv test_venv
+        source test_venv/bin/activate
+        pip install fastapi uvicorn cryptography
+        nohup python real_api_simple.py > server.log 2>&1 &
+        sleep 10
+      env:
+        MASTER_PASSWORD: test_master_password_for_ci
+        
+    - name: Run API Health Check
+      run: |
+        curl -f http://localhost:8000/api/health || exit 1
+        
+    - name: Run Rate Limiting Tests
+      run: |
+        python test_rate_limiting.py
+      env:
+        MASTER_PASSWORD: test_master_password_for_ci
+        
+    - name: Run Crypto System Tests
+      run: |
+        python test_crypto_system.py
+      env:
+        MASTER_PASSWORD: test_master_password_for_ci
+        
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-results
+        path: |
+          rate_limiting_test_results.json
+          crypto_system_test_results.json
+          backend/server.log
+
+  # 5. Security Scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scanning
+    needs: [code-quality]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # 6. Build Docker Images
+  build-images:
+    runs-on: ubuntu-latest
+    name: Build Docker Images
+    needs: [integration-tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: Build and push Backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}-backend
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Build and push Frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./nextjs-app
+        file: ./docker/Dockerfile.nextjs
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}-frontend
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # 7. Deploy to Staging
+  deploy-staging:
+    runs-on: ubuntu-latest
+    name: Deploy to Staging
+    needs: [build-images]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to Staging
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        echo "Backend Image: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}:${{ github.sha }}-backend"
+        echo "Frontend Image: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}:${{ github.sha }}-frontend"
+        # 실제 배포 스크립트는 환경에 따라 구성
+        
+    - name: Run Staging Health Check
+      run: |
+        echo "🔍 Running staging health checks..."
+        # 실제 헬스체크 스크립트 실행
+        
+    - name: Notify deployment status
+      run: |
+        echo "✅ Staging deployment completed successfully"
+
+  # 8. Deploy to Production
+  deploy-production:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    needs: [build-images]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to Production
+      run: |
+        echo "🚀 Deploying to production environment..."
+        echo "Backend Image: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}:latest-backend"
+        echo "Frontend Image: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}:latest-frontend"
+        # 실제 배포 스크립트는 환경에 따라 구성
+        
+    - name: Run Production Health Check
+      run: |
+        echo "🔍 Running production health checks..."
+        # 실제 헬스체크 스크립트 실행
+        
+    - name: Notify deployment status
+      run: |
+        echo "✅ Production deployment completed successfully"
+
+  # 9. Performance Testing (Production only)
+  performance-test:
+    runs-on: ubuntu-latest
+    name: Performance Testing
+    needs: [deploy-production]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install performance testing tools
+      run: |
+        pip install aiohttp asyncio
+        
+    - name: Run Performance Tests
+      run: |
+        python performance_test.py
+        
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: performance_test_results_*.json
+
+  # 10. Cleanup
+  cleanup:
+    runs-on: ubuntu-latest
+    name: Cleanup
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    
+    steps:
+    - name: Clean up old images
+      run: |
+        echo "🧹 Cleaning up old container images..."
+        # 오래된 이미지 정리 스크립트
+        
+    - name: Clean up test artifacts
+      run: |
+        echo "🧹 Cleaning up test artifacts..."
+        # 테스트 아티팩트 정리

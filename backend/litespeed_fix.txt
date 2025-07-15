@@ -1,0 +1,69 @@
+# LiteSpeed WordPress REST API 401 오류 해결
+
+## 1. .htaccess 파일 수정 (가장 중요!)
+
+WordPress 루트 디렉토리의 `.htaccess` 파일을 열고, 맨 위에 다음 코드를 추가하세요:
+
+```apache
+# BEGIN WordPress REST API Auth Fix
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteRule .* - [E=REMOTE_USER:%{HTTP:Authorization}]
+</IfModule>
+
+<IfModule Litespeed>
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>
+# END WordPress REST API Auth Fix
+
+# 아래는 기존 WordPress 규칙...
+```
+
+## 2. wp-config.php 파일 수정
+
+`wp-config.php` 파일에서 `/* That's all, stop editing! */` 줄 바로 위에 추가:
+
+```php
+// LiteSpeed Authorization 헤더 수정
+if (!isset($_SERVER['HTTP_AUTHORIZATION'])) {
+    if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+    } elseif (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+        $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['HTTP_AUTHORIZATION'];
+    } elseif (isset($_SERVER['REDIRECT_REMOTE_USER'])) {
+        $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_REMOTE_USER'];
+    }
+    
+    // LiteSpeed 특별 처리
+    foreach ($_SERVER as $key => $value) {
+        if (substr($key, -18) === '_AUTHORIZATION' || substr($key, -11) === '_USER') {
+            $_SERVER['HTTP_AUTHORIZATION'] = $value;
+            break;
+        }
+    }
+}
+
+// Application Password 강제 활성화
+if (!defined('WP_APPLICATION_PASSWORDS_AVAILABLE')) {
+    define('WP_APPLICATION_PASSWORDS_AVAILABLE', true);
+}
+```
+
+## 3. 수정 후 확인사항
+
+1. 파일 저장 후 브라우저 캐시 삭제 (Ctrl+Shift+Del)
+2. LiteSpeed Cache 플러그인이 있다면:
+   - LiteSpeed Cache → 캐시 → 모든 캐시 제거
+   - 설정 → 캐시 → REST API를 캐시하지 않음 활성화
+
+## 4. 테스트
+
+수정 후 다시 연결 테스트를 시도하세요.
+
+## 5. 여전히 안 된다면
+
+"JSON Basic Authentication" 플러그인을 설치하세요:
+- WordPress 관리자 → 플러그인 → 새로 추가
+- "JSON Basic Authentication" 검색
+- WP REST API Team 제작 플러그인 설치 및 활성화

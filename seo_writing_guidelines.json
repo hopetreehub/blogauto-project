@@ -1,0 +1,335 @@
+{
+  "meta": {
+    "name": "SEO 최적화 글쓰기 지침",
+    "version": "1.0",
+    "last_updated": "2025-07-12",
+    "description": "검색엔진 최적화와 사용자 경험을 모두 고려한 전문 블로그 글쓰기 가이드라인"
+  },
+  "writing_style": {
+    "primary_style": "professional",
+    "tone": "전문적이면서도 친근하고 접근하기 쉬운 톤",
+    "voice_characteristics": [
+      "신뢰할 수 있는 전문가의 목소리",
+      "복잡한 내용을 쉽게 설명하는 능력",
+      "독자의 관점에서 생각하는 공감적 접근",
+      "데이터와 사실에 기반한 객관적 서술",
+      "실용적이고 즉시 적용 가능한 조언 제공"
+    ],
+    "writing_principles": [
+      "명확성: 모호한 표현 피하고 구체적으로 설명",
+      "간결성: 불필요한 단어 제거, 핵심만 전달",
+      "논리성: 체계적인 구조로 논리적 흐름 유지",
+      "실용성: 독자가 바로 활용할 수 있는 정보 제공",
+      "신뢰성: 검증된 정보와 출처 명시"
+    ]
+  },
+  "target_audience": {
+    "primary_demographics": {
+      "age_range": "25-45세",
+      "education_level": "대학교 졸업 이상",
+      "digital_literacy": "중급 이상",
+      "income_level": "중산층 이상"
+    },
+    "psychographics": {
+      "interests": [
+        "자기계발과 성장",
+        "최신 트렌드와 정보",
+        "실용적인 해결책",
+        "전문가의 조언",
+        "시간 효율성"
+      ],
+      "pain_points": [
+        "정보 과부하로 인한 혼란",
+        "신뢰할 수 있는 정보 부족",
+        "실제 적용 가능한 조언 필요",
+        "시간 부족으로 인한 정보 압축 요구"
+      ],
+      "content_consumption_habits": [
+        "모바일 우선 읽기",
+        "스키밍과 스캐닝 선호",
+        "비주얼 요소 중시",
+        "소셜 미디어 공유 활발",
+        "즉시 적용 가능한 팁 선호"
+      ]
+    },
+    "expertise_levels": {
+      "beginner": "30% - 기초 개념부터 설명 필요",
+      "intermediate": "50% - 실용적 응용에 관심",
+      "advanced": "20% - 최신 트렌드와 심화 내용 선호"
+    }
+  },
+  "content_structure": {
+    "mandatory_elements": {
+      "introduction": {
+        "required": true,
+        "guidelines": [
+          "독자의 관심을 즉시 끄는 후킹 문장",
+          "글의 주제와 독자가 얻을 수 있는 가치 명시",
+          "글의 구조와 읽는 시간 안내",
+          "핵심 키워드를 자연스럽게 포함",
+          "100-150자 내외로 간결하게 작성"
+        ]
+      },
+      "headings_structure": {
+        "required": true,
+        "h1": "제목 (키워드 포함, 60자 이내)",
+        "h2": "주요 섹션 (2-5개, 키워드 변형 포함)",
+        "h3": "세부 내용 (필요시, 롱테일 키워드 활용)",
+        "guidelines": [
+          "헤딩에 숫자나 액션 워드 포함",
+          "독자의 궁금증을 유발하는 제목",
+          "키워드를 헤딩 앞쪽에 배치",
+          "병렬 구조로 일관성 유지"
+        ]
+      },
+      "bullet_points": {
+        "required": true,
+        "usage_scenarios": [
+          "복잡한 정보의 단순화",
+          "단계별 프로세스 설명",
+          "주요 포인트 강조",
+          "비교 및 대조 내용"
+        ],
+        "formatting_rules": [
+          "각 포인트는 한 문장으로 간결하게",
+          "병렬 구조 유지 (동사로 시작 또는 명사구)",
+          "중요도 순으로 배열",
+          "3-7개 항목이 가독성에 최적"
+        ]
+      },
+      "conclusion": {
+        "required": true,
+        "components": [
+          "핵심 내용 요약 (3-5줄)",
+          "실행 가능한 다음 단계 제시",
+          "독자 참여 유도 (댓글, 공유)",
+          "관련 콘텐츠 링크 (내부 링크)",
+          "CTA(Call to Action) 포함"
+        ]
+      }
+    },
+    "optional_elements": {
+      "table_of_contents": "2000자 이상 글에 권장",
+      "faq_section": "검색 의도가 질문형인 경우",
+      "case_studies": "B2B 콘텐츠나 전문 주제",
+      "infographics": "복잡한 데이터나 프로세스 설명",
+      "video_embeds": "시각적 설명이 효과적인 경우"
+    }
+  },
+  "seo_optimization": {
+    "keyword_strategy": {
+      "primary_keyword": {
+        "density": "1.5-2.5%",
+        "placement": [
+          "제목 앞쪽 50% 구간",
+          "첫 번째 문단 내",
+          "H2 헤딩 중 최소 1개",
+          "결론 부분",
+          "이미지 alt 텍스트"
+        ],
+        "natural_integration": [
+          "키워드 스터핑 절대 금지",
+          "문맥에 자연스럽게 녹아들게",
+          "동의어와 관련어 함께 사용",
+          "LSI 키워드 적극 활용"
+        ]
+      },
+      "secondary_keywords": {
+        "count": "3-5개",
+        "types": [
+          "롱테일 키워드",
+          "관련 키워드",
+          "의도 기반 키워드",
+          "지역 기반 키워드 (필요시)"
+        ],
+        "distribution": "H3 헤딩과 본문에 자연스럽게 분산"
+      },
+      "semantic_seo": {
+        "topic_clusters": "관련 주제 네트워크 형성",
+        "entity_optimization": "인물, 장소, 브랜드명 최적화",
+        "intent_matching": "검색 의도와 콘텐츠 일치",
+        "context_building": "주제 관련 맥락 정보 풍부하게"
+      }
+    },
+    "technical_seo": {
+      "word_count": {
+        "minimum": 1500,
+        "optimal": "2000-3500",
+        "maximum": 5000,
+        "notes": "경쟁사 분석 기반 조정"
+      },
+      "readability": {
+        "flesch_score": "60-70 (보통 수준)",
+        "average_sentence_length": "15-20단어",
+        "paragraph_length": "3-4문장",
+        "passive_voice": "10% 이하"
+      },
+      "meta_elements": {
+        "title_tag": {
+          "length": "50-60자",
+          "keyword_inclusion": "필수",
+          "emotional_trigger": "권장",
+          "brand_name": "끝부분에 배치"
+        },
+        "meta_description": {
+          "length": "150-160자",
+          "keyword_inclusion": "자연스럽게",
+          "call_to_action": "포함",
+          "unique_value": "차별화 포인트 강조"
+        }
+      },
+      "internal_linking": {
+        "minimum": "3-5개",
+        "anchor_text": "키워드 기반, 자연스러운 문구",
+        "relevance": "주제 관련성 높은 페이지",
+        "distribution": "본문 전체에 고르게 분산"
+      }
+    }
+  },
+  "content_quality": {
+    "accuracy_standards": {
+      "fact_checking": [
+        "모든 통계와 데이터 출처 확인",
+        "최신 정보 우선 사용 (2년 이내)",
+        "신뢰할 수 있는 기관 자료 인용",
+        "상반된 의견이 있는 경우 균형있게 제시"
+      ],
+      "source_attribution": [
+        "권위 있는 기관 및 전문가 인용",
+        "학술 논문 및 연구 결과 활용",
+        "1차 자료 우선, 2차 자료 보완",
+        "링크를 통한 출처 명시"
+      ]
+    },
+    "originality_requirements": {
+      "unique_content": "100% 오리지널 콘텐츠",
+      "plagiarism_tolerance": "0%",
+      "duplicate_content": "금지",
+      "value_addition": [
+        "기존 정보에 새로운 관점 추가",
+        "개인적 경험과 사례 포함",
+        "독창적인 분석과 해석",
+        "실용적인 팁과 조언"
+      ]
+    },
+    "engagement_factors": {
+      "storytelling": [
+        "개인적 경험담 포함",
+        "구체적인 사례와 예시",
+        "문제-해결 구조 활용",
+        "감정적 연결고리 형성"
+      ],
+      "visual_elements": [
+        "적절한 이미지와 그래픽",
+        "차트와 그래프 활용",
+        "인포그래픽 제작",
+        "비디오 컨텐츠 임베드"
+      ],
+      "interactive_elements": [
+        "질문을 통한 독자 참여",
+        "체크리스트와 워크시트",
+        "퀴즈와 자가진단 도구",
+        "댓글과 토론 유도"
+      ]
+    }
+  },
+  "restrictions_and_guidelines": {
+    "forbidden_practices": {
+      "keyword_stuffing": "부자연스러운 키워드 반복",
+      "clickbait": "제목과 내용 불일치",
+      "thin_content": "가치 없는 단순 정보 나열",
+      "copied_content": "타 사이트 내용 복사",
+      "misleading_info": "과장되거나 잘못된 정보"
+    },
+    "content_restrictions": {
+      "prohibited_topics": [
+        "의료 진단 및 치료 조언",
+        "법적 조언 및 상담",
+        "투자 권유 및 금융 조언",
+        "정치적 편향성 내용",
+        "차별적 또는 혐오 표현"
+      ],
+      "sensitive_handling": [
+        "건강 정보: 일반적 정보만, 전문의 상담 권유",
+        "재정 정보: 교육 목적만, 개인 판단 강조",
+        "법률 정보: 일반적 내용만, 전문가 상담 권유"
+      ]
+    },
+    "language_guidelines": {
+      "tone_restrictions": [
+        "과도한 전문 용어 사용 금지",
+        "공격적이거나 부정적 표현 피하기",
+        "확정적 단언보다 균형잡힌 서술",
+        "광고성 표현 최소화"
+      ],
+      "inclusive_language": [
+        "성별 중립적 표현 사용",
+        "연령대별 배려 언어",
+        "문화적 다양성 고려",
+        "접근성 고려한 언어 사용"
+      ]
+    }
+  },
+  "brand_voice": {
+    "core_values": [
+      "신뢰성: 검증된 정보만 제공",
+      "실용성: 바로 적용 가능한 가치",
+      "혁신성: 새로운 시각과 접근법",
+      "포용성: 모든 수준의 독자 고려",
+      "지속성: 장기적 가치 제공"
+    ],
+    "communication_style": {
+      "formal_level": "세미 포멀 (너무 딱딱하지 않으면서 전문적)",
+      "perspective": "1인칭 복수 (우리) 또는 2인칭 (당신) 활용",
+      "emotional_tone": "긍정적이고 격려하는 톤",
+      "expertise_demonstration": "겸손하면서도 확신 있는 전문성"
+    },
+    "signature_elements": [
+      "실전 팁과 체크리스트 제공",
+      "단계별 가이드와 프로세스",
+      "실제 사례와 경험담",
+      "데이터 기반 인사이트",
+      "미래 전망과 트렌드 분석"
+    ]
+  },
+  "quality_assurance": {
+    "pre_publication_checklist": [
+      "키워드 최적화 검증 (밀도, 배치)",
+      "가독성 점수 확인 (60+ 점수)",
+      "문법 및 맞춤법 검사",
+      "팩트 체킹 및 출처 확인",
+      "내부 링크 설정 및 검증",
+      "메타 태그 최적화 완료",
+      "이미지 alt 텍스트 작성",
+      "모바일 가독성 테스트"
+    ],
+    "success_metrics": {
+      "engagement_targets": {
+        "average_time_on_page": "3분 이상",
+        "bounce_rate": "50% 이하",
+        "social_shares": "10+ 공유",
+        "comments": "5+ 댓글"
+      },
+      "seo_targets": {
+        "organic_traffic_growth": "월 10% 증가",
+        "keyword_ranking": "타겟 키워드 상위 10위",
+        "click_through_rate": "3% 이상",
+        "featured_snippet": "구조화된 데이터 최적화"
+      }
+    }
+  },
+  "maintenance_and_updates": {
+    "content_lifecycle": {
+      "regular_review": "6개월마다 내용 검토",
+      "data_updates": "통계 및 트렌드 정보 업데이트",
+      "link_maintenance": "링크 유효성 월 1회 검사",
+      "performance_analysis": "월간 트래픽 및 순위 분석"
+    },
+    "optimization_cycles": [
+      "초기 발행 후 1주일: 초기 성과 분석",
+      "1개월 후: 키워드 성과 및 순위 확인",
+      "3개월 후: 콘텐츠 개선 사항 적용",
+      "6개월 후: 전면 리뷰 및 업데이트"
+    ]
+  }
+}

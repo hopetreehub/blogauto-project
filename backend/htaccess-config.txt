@@ -1,0 +1,21 @@
+# WordPress REST API Authorization Headers for LiteSpeed
+# 이 설정을 WordPress 루트 디렉토리의 .htaccess 파일에 추가하세요
+
+# Authorization 헤더 활성화
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule ^(.*) - [E=HTTP_AUTHORIZATION:%1]
+
+# CORS 및 Authorization 헤더 설정
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE, PUT"
+    Header always set Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With"
+    Header always set Access-Control-Expose-Headers "X-WP-Total, X-WP-TotalPages"
+    Header always set Access-Control-Allow-Credentials "true"
+</IfModule>
+
+# LiteSpeed 캐시 플러그인 사용 시 REST API 제외
+<IfModule LiteSpeed>
+    RewriteRule ^wp-json/.*$ - [E=Cache-Control:no-cache]
+</IfModule>

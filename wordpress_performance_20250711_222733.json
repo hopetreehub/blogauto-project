@@ -1,0 +1,46 @@
+{
+  "auth_tests": [],
+  "wordpress_tests": [
+    {
+      "test": "Keyword Analysis",
+      "endpoint": "/api/keywords/analyze",
+      "time_ms": 4.38,
+      "status": 401,
+      "response_size": 0
+    },
+    {
+      "test": "Title Generation",
+      "endpoint": "/api/titles/generate",
+      "time_ms": 2.08,
+      "status": 401,
+      "response_size": 0
+    },
+    {
+      "test": "Content Generation",
+      "endpoint": "/api/content/generate",
+      "time_ms": 1.96,
+      "status": 401,
+      "response_size": 0
+    },
+    {
+      "test": "WordPress Connection",
+      "endpoint": "/api/wordpress/test-connection",
+      "time_ms": 491.19,
+      "status": 200,
+      "details": {
+        "success": false,
+        "error": "WordPress REST API에 접근할 수 없습니다 (404)",
+        "suggestion": "WordPress 사이트 URL이 올바른지 확인하고, REST API가 활성화되어 있는지 확인하세요."
+      }
+    },
+    {
+      "test": "WordPress Publishing",
+      "endpoint": "/api/wordpress/publish",
+      "time_ms": 1.66,
+      "status": 401,
+      "details": "{\"detail\":\"OpenAI API 키가 필요합니다.\"}"
+    }
+  ],
+  "optimization_suggestions": [],
+  "timestamp": "2025-07-11T22:27:33.315918"
+}

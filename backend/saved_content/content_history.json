@@ -1,0 +1,46 @@
+[
+  {
+    "id": "535056e0-6d25-4465-a8bd-558368b173dd",
+    "title": "유기농 식재료, 마트에서 똑똑하게 고르는 법",
+    "keyword": "건강한 식단",
+    "content_type": "blog_post",
+    "created_at": "2025-07-14T21:14:25.938563",
+    "updated_at": "2025-07-14T21:14:25.938563",
+    "word_count": 1357,
+    "seo_score": 90,
+    "status": "draft"
+  },
+  {
+    "id": "b99c0928-779d-4e25-80b3-000016b4ab86",
+    "title": "유기농 식재료, 마트에서 똑똑하게 고르는 법",
+    "keyword": "",
+    "content_type": "blog_post",
+    "created_at": "2025-07-14T20:39:34.436478",
+    "updated_at": "2025-07-14T20:39:34.436478",
+    "word_count": 1141,
+    "seo_score": 85,
+    "status": "draft"
+  },
+  {
+    "id": "0452e092-9257-4a6b-91f7-5a9247707577",
+    "title": "2025년 건강한 식단 최신 트렌드 TOP 10",
+    "keyword": "건강한 식단",
+    "content_type": "blog_post",
+    "created_at": "2025-07-14T03:27:14.624948",
+    "updated_at": "2025-07-14T03:27:14.624948",
+    "word_count": 1321,
+    "seo_score": 90,
+    "status": "draft"
+  },
+  {
+    "id": "47d2352d-7203-45a5-8570-87661c8ef519",
+    "title": "테스트 콘텐츠",
+    "keyword": "테스트",
+    "content_type": "content",
+    "created_at": "2025-07-13T00:15:35.460308",
+    "updated_at": "2025-07-13T00:15:35.460308",
+    "word_count": 15,
+    "seo_score": 85,
+    "status": "draft"
+  }
+]

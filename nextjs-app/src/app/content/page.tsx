@@ -1,11 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/useToast';
 import ToastContainer from '@/components/ToastContainer';
 import { apiCall } from '@/utils/api';
 import { useRouter } from 'next/navigation';
 import GuidelinesModal from '@/components/GuidelinesModal';
+import { useWorkflow } from '@/contexts/WorkflowContext';
+import { useAutoSave, useBeforeUnload } from '@/hooks/useAutoSave';
+import { AutoSaveStatus } from '@/components/AutoSaveStatus';
+import WorkflowStepper from '@/components/WorkflowStepper';
+import { 
+  DocumentIcon, 
+  ClipboardIcon, 
+  SearchIcon, 
+  PencilIcon, 
+  CopyIcon, 
+  DownloadIcon, 
+  ImageIcon, 
+  RocketIcon
+} from '@/components/Icons';
+import { AccessibleButton } from '@/components/AccessibleButton';
+import { OptimizedImage } from '@/components/OptimizedImage';
 
 interface ContentResult {
   content: string;
@@ -29,8 +45,58 @@ export default function ContentPage() {
   const [error, setError] = useState('');
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [publishingToWP, setPublishingToWP] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const { toasts, success, error: toastError, removeToast } = useToast();
   const router = useRouter();
+  
+  // 워크플로우 상태 관리
+  const { state: workflowState, actions: workflowActions } = useWorkflow();
+  
+  // 자동저장 설정
+  const autoSaveData = {
+    title,
+    keywords,
+    length,
+    result,
+    timestamp: Date.now()
+  };
+  
+  const {
+    saveNow,
+    hasUnsavedChanges,
+    lastSaved,
+    restoreData
+  } = useAutoSave(autoSaveData, {
+    key: 'content_page',
+    interval: 30000, // 30초마다 저장
+    enabled: true
+  });
+  
+  // 페이지 이탈 경고
+  useBeforeUnload(hasUnsavedChanges);
+  
+  // 페이지 로드 시 워크플로우 설정 및 데이터 복원
+  useEffect(() => {
+    workflowActions.setStep('content');
+    
+    // 워크플로우에서 선택된 데이터 사용
+    if (workflowState.selectedTitle) {
+      setTitle(workflowState.selectedTitle);
+    }
+    if (workflowState.selectedKeyword) {
+      setKeywords(workflowState.selectedKeyword);
+    }
+    
+    // 저장된 데이터 복원
+    const saved = restoreData();
+    if (saved?.data) {
+      setTitle(saved.data.title || workflowState.selectedTitle || '');
+      setKeywords(saved.data.keywords || workflowState.selectedKeyword || '');
+      setLength(saved.data.length || 'medium');
+      setResult(saved.data.result || null);
+    }
+  }, []);
 
   const generateContent = async () => {
     if (!title.trim()) {
@@ -79,6 +145,7 @@ export default function ContentPage() {
 
       const data = await response.json();
       setResult(data);
+      workflowActions.setContent(data.content);
       success('고품질 콘텐츠가 성공적으로 생성되었습니다.');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
@@ -155,8 +222,9 @@ export default function ContentPage() {
         content: result.content,
         status: 'publish',
         categories: [],
-        tags: [],
-        generate_image: true,
+        tags: extractTagsFromContent(result.content),
+        generate_image: generatedImage ? false : true,
+        image_url: generatedImage,
         image_prompt: title,
         wp_config: wpConfig
       };
@@ -168,8 +236,9 @@ export default function ContentPage() {
           title: title,
           content: result.content,
           categories: [],
-          tags: [],
-          generate_image: true,
+          tags: extractTagsFromContent(result.content),
+          generate_image: generatedImage ? false : true,
+          image_url: generatedImage,
           image_prompt: title,
           publish_datetime: scheduleDate,
           wp_config: wpConfig
@@ -188,6 +257,10 @@ export default function ContentPage() {
           success(`WordPress 예약 발행 성공! ${new Date(scheduleDate!).toLocaleString('ko-KR')}에 자동 발행됩니다.`);
         } else {
           success(`WordPress에 성공적으로 발행되었습니다! 상태: ${resultData.status_message}`);
+          // 워크플로우 완료 상태로 이동
+          setTimeout(() => {
+            router.push('/wordpress');
+          }, 2000);
         }
       } else {
         toastError(`WordPress 발행 실패: ${resultData.error}`);
@@ -196,6 +269,97 @@ export default function ContentPage() {
       toastError('WordPress 발행 중 오류가 발생했습니다.');
     } finally {
       setPublishingToWP(false);
+    }
+  };
+
+  // 태그 추출 함수
+  const extractTagsFromContent = (content: string): string[] => {
+    // 태그 패턴 매칭 및 생성
+    const tagPatterns = [
+      /키워드:\s*([^\n]+)/g,
+      /태그:\s*([^\n]+)/g,
+      /#([a-zA-Z가-힣0-9]+)/g
+    ];
+    
+    const tags = new Set<string>();
+    
+    // 키워드에서 태그 추출
+    if (keywords) {
+      keywords.split(',').forEach(k => {
+        const tag = k.trim();
+        if (tag) tags.add(tag);
+      });
+    }
+    
+    // 콘텐츠에서 태그 패턴 추출
+    tagPatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        if (match[1]) {
+          match[1].split(',').forEach((tag: string) => {
+            const cleanTag = tag.trim().replace(/[#]/g, '');
+            if (cleanTag) tags.add(cleanTag);
+          });
+        }
+      }
+    });
+    
+    return Array.from(tags).slice(0, 10); // 최대 10개 태그
+  };
+
+  // 이미지 생성 함수
+  const generateImageForContent = async () => {
+    if (!title) {
+      toastError('먼저 제목을 입력해주세요.');
+      return;
+    }
+
+    // 🔬 전문가 디버깅: API 키 상태 사전 체크
+    const settings = localStorage.getItem('api_settings');
+    const parsedSettings = settings ? JSON.parse(settings) : null;
+    console.log('🔍 [Image Generation Debug] Pre-check:', {
+      hasLocalStorage: !!settings,
+      hasOpenAIKey: !!(parsedSettings?.openai_api_key),
+      keyLength: parsedSettings?.openai_api_key?.length || 0,
+      title: title,
+      keywords: keywords
+    });
+
+    setGeneratingImage(true);
+    try {
+      const response = await apiCall('http://localhost:8000/api/images/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: title,
+          keyword: keywords,
+          prompt: '',
+          style: 'professional',
+          size: '1024x1024',
+          quality: 'standard'
+        })
+      });
+
+      console.log('🔍 [Image Generation Debug] Response Status:', response.status);
+      
+      const imageResult = await response.json();
+      console.log('🔍 [Image Generation Debug] Response Body:', imageResult);
+      
+      if (imageResult.success && imageResult.image_url) {
+        setGeneratedImage(imageResult.image_url);
+        success('이미지가 성공적으로 생성되었습니다!');
+      } else {
+        console.error('🔍 [Image Generation Error]:', imageResult);
+        if (response.status === 401) {
+          toastError('API 키 인증 실패. 설정 페이지에서 OpenAI API 키를 확인해주세요.');
+        } else {
+          toastError(imageResult.error || '이미지 생성에 실패했습니다.');
+        }
+      }
+    } catch (err) {
+      console.error('🔍 [Image Generation Exception]:', err);
+      toastError('이미지 생성 중 오류가 발생했습니다.');
+    } finally {
+      setGeneratingImage(false);
     }
   };
 
@@ -243,22 +407,51 @@ export default function ContentPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 p-8">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* 워크플로우 스테퍼 */}
+        <WorkflowStepper className="mb-6" />
+        
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">콘텐츠 생성</h1>
               <p className="text-gray-600 mt-2">AI가 고품질 블로그 콘텐츠를 자동으로 생성해드립니다</p>
+              
+              {(workflowState.selectedKeyword || workflowState.selectedTitle) && (
+                <div className="mt-2 space-y-1">
+                  {workflowState.selectedKeyword && (
+                    <div className="flex items-center text-sm text-blue-600">
+                      <SearchIcon className="mr-2" size={16} />
+                      선택된 키워드: <span className="font-medium ml-1">{workflowState.selectedKeyword}</span>
+                    </div>
+                  )}
+                  {workflowState.selectedTitle && (
+                    <div className="flex items-center text-sm text-green-600">
+                      <PencilIcon className="mr-2" size={16} />
+                      선택된 제목: <span className="font-medium ml-1">{workflowState.selectedTitle}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => setShowGuidelines(true)}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 flex items-center"
-            >
-              <span className="mr-2">📋</span>
-              작성 지침 보기
-            </button>
+            <div className="flex items-center gap-4">
+              {/* 자동저장 상태 */}
+              <AutoSaveStatus 
+                hasUnsavedChanges={hasUnsavedChanges}
+                lastSaved={lastSaved}
+                onSaveNow={saveNow}
+              />
+              <AccessibleButton
+                onClick={() => setShowGuidelines(true)}
+                variant="secondary"
+                icon={<ClipboardIcon size={16} />}
+                ariaLabel="콘텐츠 작성 지침 보기"
+              >
+                작성 지침 보기
+              </AccessibleButton>
+            </div>
           </div>
         </div>
 
@@ -306,19 +499,16 @@ export default function ContentPage() {
             </div>
           </div>
 
-          <button
+          <AccessibleButton
             onClick={generateContent}
             disabled={loading}
-            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            loading={loading}
+            icon={<DocumentIcon size={18} />}
+            ariaLabel="AI 콘텐츠 생성 시작"
+            size="lg"
           >
-            {loading && (
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            )}
-            {loading ? '생성 중...' : '콘텐츠 생성'}
-          </button>
+            콘텐츠 생성
+          </AccessibleButton>
 
           {error && !loading && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -334,12 +524,15 @@ export default function ContentPage() {
                     {error}
                   </div>
                   <div className="mt-3">
-                    <button
+                    <AccessibleButton
                       onClick={() => setError('')}
-                      className="bg-red-100 text-red-800 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-200 transition-colors"
+                      variant="ghost"
+                      size="sm"
+                      ariaLabel="오류 메시지 닫기"
+                      className="bg-red-100 text-red-800 hover:bg-red-200"
                     >
                       닫기
-                    </button>
+                    </AccessibleButton>
                   </div>
                 </div>
               </div>
@@ -353,31 +546,47 @@ export default function ContentPage() {
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900">생성된 콘텐츠</h2>
                 <div className="flex space-x-2">
-                  <button
+                  <AccessibleButton
                     onClick={() => copyToClipboard(result.content)}
-                    className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 text-sm"
+                    variant="secondary"
+                    icon={<CopyIcon size={16} />}
+                    ariaLabel="생성된 콘텐츠 복사"
+                    size="sm"
                   >
                     복사
-                  </button>
-                  <button
+                  </AccessibleButton>
+                  <AccessibleButton
                     onClick={downloadAsFile}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm"
+                    icon={<DownloadIcon size={16} />}
+                    ariaLabel="콘텐츠를 텍스트 파일로 다운로드"
+                    size="sm"
                   >
                     다운로드
-                  </button>
-                  <button
+                  </AccessibleButton>
+                  <AccessibleButton
+                    onClick={generateImageForContent}
+                    disabled={generatingImage}
+                    loading={generatingImage}
+                    variant="secondary"
+                    icon={<ImageIcon size={16} />}
+                    ariaLabel="콘텐츠에 맞는 이미지 생성"
+                    size="sm"
+                    className="bg-purple-600 text-white hover:bg-purple-700"
+                  >
+                    이미지 생성
+                  </AccessibleButton>
+                  <AccessibleButton
                     onClick={showPublishOptions}
                     disabled={publishingToWP}
-                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm disabled:opacity-50 flex items-center"
+                    loading={publishingToWP}
+                    variant="secondary"
+                    icon={<RocketIcon size={16} />}
+                    ariaLabel="WordPress에 콘텐츠 발행"
+                    size="sm"
+                    className="bg-green-600 text-white hover:bg-green-700"
                   >
-                    {publishingToWP && (
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    )}
-                    {publishingToWP ? '발행 중...' : 'WordPress 발행 옵션'}
-                  </button>
+                    WordPress 발행
+                  </AccessibleButton>
                 </div>
               </div>
             </div>
@@ -419,6 +628,29 @@ export default function ContentPage() {
                 </div>
               </div>
               
+              {/* 생성된 이미지 표시 */}
+              {generatedImage && (
+                <div className="border border-gray-200 rounded-lg p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <ImageIcon className="mr-2" size={20} />
+                    생성된 이미지
+                  </h3>
+                  <div className="flex justify-center">
+                    <OptimizedImage
+                      src={generatedImage}
+                      alt={`${title}에 대한 생성된 이미지`}
+                      width={400}
+                      height={400}
+                      className="max-w-full h-auto rounded-lg shadow-md"
+                      priority={false}
+                    />
+                  </div>
+                  <div className="mt-4 text-sm text-gray-500 text-center">
+                    이 이미지는 WordPress 발행 시 자동으로 업로드됩니다.
+                  </div>
+                </div>
+              )}
+
               {/* 콘텐츠 본문 */}
               <div className="border border-gray-200 rounded-lg p-6">
                 <div className="prose max-w-none">

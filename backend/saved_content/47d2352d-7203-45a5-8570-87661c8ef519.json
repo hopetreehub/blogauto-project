@@ -1,0 +1,15 @@
+{
+  "id": "47d2352d-7203-45a5-8570-87661c8ef519",
+  "title": "테스트 콘텐츠",
+  "keyword": "테스트",
+  "content_type": "content",
+  "created_at": "2025-07-13T00:15:35.460308",
+  "updated_at": "2025-07-13T00:15:35.460308",
+  "word_count": 15,
+  "seo_score": 85,
+  "status": "draft",
+  "content": "이것은 테스트 콘텐츠입니다.",
+  "keywords_used": [],
+  "images": [],
+  "metadata": {}
+}

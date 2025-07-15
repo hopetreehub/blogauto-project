@@ -1,0 +1,99 @@
+groups:
+  - name: blogauto_infrastructure
+    interval: 30s
+    rules:
+      # CPU 사용률 알림
+      - alert: HighCpuUsage
+        expr: |
+          blogauto_cpu_usage_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}%"
+          
+      # 메모리 부족
+      - alert: LowMemoryAvailable
+        expr: |
+          blogauto_memory_usage_bytes / (1024 * 1024 * 1024) > 3.5
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Low memory available"
+          description: "Memory usage is {{ $value | humanize }}B"
+          
+      # 디스크 공간 부족
+      - alert: LowDiskSpace
+        expr: |
+          blogauto_disk_usage_percent > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is {{ $value }}%"
+          
+      # 데이터베이스 연결 실패
+      - alert: DatabaseConnectionDown
+        expr: |
+          up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection is down"
+          description: "Cannot connect to PostgreSQL database"
+          
+      # Redis 연결 실패
+      - alert: RedisConnectionDown
+        expr: |
+          up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cache
+        annotations:
+          summary: "Redis connection is down"
+          description: "Cannot connect to Redis cache"
+          
+      # 백엔드 서비스 다운
+      - alert: BackendServiceDown
+        expr: |
+          up{job="blogauto-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: "Backend service is down"
+          description: "BlogAuto backend API is not responding"
+          
+      # 프론트엔드 서비스 다운
+      - alert: FrontendServiceDown
+        expr: |
+          up{job="blogauto-frontend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: frontend
+        annotations:
+          summary: "Frontend service is down"
+          description: "BlogAuto frontend is not responding"
+          
+      # 컨테이너 재시작
+      - alert: ContainerRestarting
+        expr: |
+          rate(container_last_seen{name=~"blogauto.*"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: container
+        annotations:
+          summary: "Container {{ $labels.name }} is restarting"
+          description: "Container has restarted {{ $value }} times in the last 5 minutes"

@@ -1,0 +1,126 @@
+# Production Environment Configuration
+name: production
+url: https://blogauto.com
+
+# Environment protection rules
+protection_rules:
+  required_reviewers: 2
+  prevent_self_review: true
+  wait_timer: 300  # 5 minutes wait time
+  deployment_branch_policy:
+    protected_branches: true
+    custom_branch_policies: false
+    protected_branches_only: ["main"]
+
+# Environment variables
+environment_variables:
+  NODE_ENV: "production"
+  API_BASE_URL: "https://api.blogauto.com"
+  FRONTEND_URL: "https://blogauto.com"
+  BACKEND_URL: "https://api.blogauto.com"
+  
+  # Database
+  DATABASE_TYPE: "postgresql"
+  DATABASE_HOST: "prod-db.blogauto.com"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "blogauto_production"
+  DATABASE_SSL: "require"
+  
+  # Redis
+  REDIS_HOST: "prod-redis.blogauto.com"
+  REDIS_PORT: "6379"
+  REDIS_SSL: "true"
+  
+  # Monitoring
+  SENTRY_ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  
+  # Rate Limiting (더 엄격한 설정)
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_WINDOW: "60"
+  RATE_LIMIT_MAX_REQUESTS: "60"
+  
+  # Security
+  CORS_ORIGINS: "https://blogauto.com,https://www.blogauto.com"
+  SECURE_COOKIES: "true"
+  HTTPS_ONLY: "true"
+  
+  # Performance
+  CACHE_TTL: "3600"
+  COMPRESSION_ENABLED: "true"
+
+# Secrets (configured in GitHub repository settings)
+required_secrets:
+  - DATABASE_PASSWORD
+  - REDIS_PASSWORD
+  - MASTER_PASSWORD
+  - SENTRY_DSN
+  - OPENAI_API_KEY_DEFAULT
+  - JWT_SECRET
+  - SMTP_PASSWORD
+  - SSL_CERTIFICATE
+  - SSL_PRIVATE_KEY
+
+# Deployment configuration
+deployment:
+  strategy: "blue-green"
+  replicas: 3
+  min_replicas: 2
+  max_replicas: 10
+  
+  resources:
+    backend:
+      cpu: "1000m"
+      memory: "2Gi"
+      cpu_limit: "2000m"
+      memory_limit: "4Gi"
+    frontend:
+      cpu: "500m"
+      memory: "1Gi"
+      cpu_limit: "1000m"
+      memory_limit: "2Gi"
+  
+  health_check:
+    enabled: true
+    path: "/api/health"
+    initial_delay: 60
+    timeout: 30
+    failure_threshold: 3
+    
+  readiness_check:
+    enabled: true
+    path: "/api/ready"
+    initial_delay: 30
+    timeout: 10
+    
+  monitoring:
+    enabled: true
+    metrics_endpoint: "/metrics"
+    alerts_enabled: true
+    
+  backup:
+    enabled: true
+    retention_days: 30
+    schedule: "0 2 * * *"  # Daily at 2 AM
+
+# Auto-scaling configuration
+autoscaling:
+  enabled: true
+  target_cpu_utilization: 70
+  target_memory_utilization: 80
+  scale_up_stabilization: 60    # seconds
+  scale_down_stabilization: 300 # seconds
+
+# Security policies
+security:
+  network_policies:
+    enabled: true
+    ingress_whitelist:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"
+  
+  pod_security:
+    enabled: true
+    run_as_non_root: true
+    read_only_root_filesystem: true

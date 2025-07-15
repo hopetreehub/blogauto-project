@@ -1,4 +1,9 @@
-# 🤖 블로그 자동화 시스템
+# 🚀 BlogAuto - AI 기반 블로그 자동화 시스템
+
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.68+-green.svg)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 AI 기반 키워드 분석부터 콘텐츠 생성까지 한 번에 처리하는 완전 자동화 솔루션
 
@@ -25,27 +30,35 @@ cd /mnt/e/project/test-blogauto-project
 - **🌐 메인 서비스**: http://localhost:4007
 - **🔧 백엔드 API**: http://localhost:8000
 
-## ✨ 현재 활성화된 기능
+## 🌟 주요 기능
 
-### 1. 키워드 분석 🔍
-- 검색량, 경쟁도, 기회점수 분석
-- SEO 최적화된 키워드 추천
-- CSV 다운로드 지원
+### 📝 콘텐츠 생성
+- **키워드 분석**: SEO 최적화된 키워드 분석 및 기회 점수 계산
+- **제목 생성**: AI 기반 매력적인 블로그 제목 자동 생성
+- **콘텐츠 작성**: 고품질 블로그 콘텐츠 자동 생성
+- **이미지 처리**: Unsplash API 연동 이미지 자동 삽입
+- **WordPress 발행**: 자동 포스팅 및 카테고리/태그 설정
 
-### 2. 제목 생성 ✍️
-- AI 기반 매력적인 제목 자동 생성
-- 2025년 최신 트렌드 반영
-- 클릭률 향상 요소 포함
+### 🔐 보안 기능
+- **Rate Limiting**: IP 기반 요청 제한 (분당 60회)
+- **API 키 암호화**: AES-256 암호화로 안전한 키 관리
+- **CORS 설정**: 크로스 오리진 요청 제어
+- **입력 검증**: 모든 API 엔드포인트 입력값 검증
+- **IP 차단**: 의심스러운 패턴 감지 시 자동 차단
 
-### 3. 콘텐츠 생성 📝
-- 지침 기반 고품질 콘텐츠 생성
-- SEO 최적화 자동 적용
-- 1,500자 이상 장문 콘텐츠
+### 🚀 성능 최적화
+- **하이브리드 캐싱**: L1(메모리) + L2(Redis) 캐싱
+- **연결 풀링**: 데이터베이스 및 HTTP 연결 풀
+- **응답 압축**: gzip 압축으로 대역폭 절감
+- **비동기 처리**: FastAPI 비동기 지원
+- **배치 처리**: 대량 요청 최적화
 
-### 4. 작성 지침 관리 📋
-- 키워드, 제목, 콘텐츠, SEO 지침 커스터마이징
-- 실시간 지침 적용
-- 2025년 시점 맞춤 가이드
+### 📊 모니터링
+- **Prometheus**: 메트릭 수집 및 저장
+- **Grafana**: 실시간 대시보드 및 시각화
+- **Sentry**: 에러 추적 및 성능 모니터링
+- **Jaeger**: 분산 추적 시스템
+- **Loki**: 로그 수집 및 분석
 
 ## 🔧 설정 방법
 
@@ -147,141 +160,135 @@ lsof -i :4007 -i :8000
 - 실시간 모니터링
 - 성과 리포트 생성
 
-## 🏗️ 프로젝트 구조
-
-```
-blogauto-project/
-├── frontend/           # React + Electron 데스크탑 앱
-├── backend/           # FastAPI 백엔드 서버
-├── nextjs-app/        # Next.js 웹 애플리케이션
-├── database/          # 데이터베이스 스키마
-├── docker/            # Docker 설정 파일들
-└── docs/              # 프로젝트 문서
-```
-
 ## 🛠️ 기술 스택
 
-### Frontend
-- **React 19** - 모던 UI 라이브러리
-- **Electron** - 크로스플랫폼 데스크탑 앱
-- **Next.js 15** - 풀스택 React 프레임워크
-- **Tailwind CSS** - 유틸리티 기반 CSS 프레임워크
-- **TypeScript** - 타입 안전성
-
 ### Backend
-- **FastAPI** - 고성능 비동기 API 프레임워크
-- **Python 3.11** - 최신 Python 기능 활용
-- **PostgreSQL** - 관계형 데이터베이스
-- **Redis** - 인메모리 캐시 및 세션 스토어
-- **SQLAlchemy** - ORM (향후 추가 예정)
+- **Framework**: FastAPI (Python 3.8+)
+- **Database**: PostgreSQL + SQLAlchemy
+- **Cache**: Redis
+- **Queue**: Celery + Redis
+- **API**: OpenAI GPT, Google Search, Unsplash
 
-### AI & External APIs
-- **OpenAI GPT** - 텍스트 생성
-- **Google Gemini** - 멀티모달 AI
-- **HuggingFace** - 오픈소스 AI 모델
-- **Google Keyword Planner** - 키워드 분석
-- **SEMrush/Ahrefs** - SEO 데이터
+### Frontend
+- **Framework**: React 18 + TypeScript
+- **UI**: Material-UI
+- **State**: Redux Toolkit
+- **HTTP**: Axios
 
 ### Infrastructure
-- **Docker & Docker Compose** - 컨테이너화
-- **AWS S3** - 파일 스토리지
-- **GitHub Actions** - CI/CD (향후 추가)
-- **Kubernetes** - 오케스트레이션 (향후 추가)
+- **Container**: Docker + Docker Compose
+- **CI/CD**: GitHub Actions
+- **Monitoring**: Prometheus + Grafana + Sentry
+- **Logging**: Loki + Promtail
 
-## 🚀 빠른 시작
+## 📋 필수 요구사항
 
-### 전제 조건
-- Node.js 18 이상
-- Python 3.11 이상
+- Python 3.8 이상
+- Node.js 16 이상
 - Docker & Docker Compose
+- Redis 6.0 이상
+- PostgreSQL 13 이상
 
-### 1. Docker로 실행 (권장)
+### 1. 저장소 클론
 ```bash
-git clone <repository-url>
-cd blogauto-project
-cp backend/.env.example backend/.env
-# .env 파일에서 API 키 설정
-cd docker
-docker-compose up -d
+git clone https://github.com/your-org/test-blogauto-project.git
+cd test-blogauto-project
 ```
 
-### 2. 수동 설치
+### 2. 환경 변수 설정
 ```bash
-# 백엔드 실행
+cp .env.example .env
+# .env 파일을 열어 필요한 값들을 설정하세요
+```
+
+필수 환경 변수:
+```
+# API Keys
+OPENAI_API_KEY=your_openai_api_key
+GOOGLE_API_KEY=your_google_api_key
+GOOGLE_CSE_ID=your_google_cse_id
+UNSPLASH_ACCESS_KEY=your_unsplash_key
+
+# Database
+DATABASE_URL=postgresql://user:password@localhost/blogauto
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
+
+# Security
+MASTER_PASSWORD=your_master_password
+SECRET_KEY=your_secret_key
+
+# WordPress
+WORDPRESS_URL=https://your-site.com
+WORDPRESS_USERNAME=your_username
+WORDPRESS_PASSWORD=your_password
+
+# Monitoring
+SENTRY_DSN=your_sentry_dsn
+```
+
+### 3. Docker Compose로 실행
+```bash
+# 전체 스택 실행
+docker-compose up -d
+
+# 모니터링 스택 포함
+docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+```
+
+### 4. 개발 환경 설정
+```bash
+# Backend
 cd backend
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python main.py
+python -m uvicorn real_api_simple:app --reload
 
-# 프론트엔드 실행 (새 터미널)
+# Frontend
 cd frontend
 npm install
 npm start
-
-# Next.js 웹앱 실행 (새 터미널)
-cd nextjs-app
-npm install
-npm run dev
 ```
 
-### 3. 접속 주소
-- 백엔드 API: http://localhost:8000
-- API 문서: http://localhost:8000/docs
-- Next.js 웹앱: http://localhost:3000
-- Electron 데스크탑 앱: 자동 실행
+## 📖 상세 문서
 
-## 📖 문서
+- [API 문서](./docs/api-documentation.md) - API 엔드포인트 상세 설명
+- [배포 가이드](./docs/deployment-guide.md) - 프로덕션 배포 방법
+- [모니터링 가이드](./docs/monitoring-guide.md) - 모니터링 시스템 사용법
+- [보안 가이드](./docs/security-guide.md) - 보안 설정 및 모범 사례
+- [성능 가이드](./docs/performance-guide.md) - 성능 최적화 팁
+- [CI/CD 가이드](./docs/ci-cd-guide.md) - 자동화 파이프라인 설정
 
-- [설치 가이드](docs/setup-guide.md) - 상세한 설치 및 설정 가이드
-- [API 문서](docs/api-documentation.md) - REST API 사용법
-- [개발 가이드](docs/development-guide.md) - 개발자를 위한 가이드
+## 🧪 테스트
 
-## 🔧 설정
-
-### 환경 변수
 ```bash
-# API Keys
-OPENAI_API_KEY=your_openai_api_key
-GEMINI_API_KEY=your_gemini_api_key
-SEMRUSH_API_KEY=your_semrush_api_key
-AHREFS_API_KEY=your_ahrefs_api_key
+# Backend 테스트
+cd backend
+pytest -v
 
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/blogauto
-REDIS_URL=redis://localhost:6379
+# Frontend 테스트
+cd frontend
+npm test
 
-# AWS (선택사항)
-AWS_ACCESS_KEY_ID=your_aws_access_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret_key
-AWS_S3_BUCKET=your-s3-bucket
+# 통합 테스트
+python test_integration.py
+
+# 성능 테스트
+python test_performance_optimization.py
 ```
 
-## 🎯 로드맵
+## 📊 모니터링 접속 정보
 
-### Phase 1 (완료) ✅
-- [x] 프로젝트 초기 설정
-- [x] React + Electron 데스크탑 앱
-- [x] FastAPI 백엔드 구조
-- [x] Next.js 웹 애플리케이션
-- [x] 데이터베이스 스키마 설계
-- [x] Docker 환경 구성
+- **Grafana**: http://localhost:3001 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **Jaeger**: http://localhost:16686
 
-### Phase 2 (진행 중) 🚧
-- [ ] 사용자 인증 시스템
-- [ ] 실제 AI API 연동
-- [ ] 키워드 분석 고도화
-- [ ] 콘텐츠 생성 엔진
-- [ ] 플랫폼 연동 API
 
-### Phase 3 (계획) 📋
-- [ ] SEO 분석 대시보드
-- [ ] 배치 처리 시스템
-- [ ] 팀 협업 기능
-- [ ] 성과 분석 및 리포팅
-- [ ] 모바일 앱
-
-## 🤝 기여하기
+## 🤝 기여 방법
 
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
@@ -289,14 +296,23 @@ AWS_S3_BUCKET=your-s3-bucket
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## 📄 라이센스
+## 📝 라이선스
 
-이 프로젝트는 MIT 라이센스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
-## 📞 문의
+## 👥 팀
 
-프로젝트 관련 문의사항이나 버그 리포트는 GitHub Issues를 통해 남겨주세요.
+- **개발팀**: BlogAuto Development Team
+- **문의**: support@blogauto.com
+
+## 🙏 감사의 말
+
+- OpenAI - GPT API 제공
+- Google - Custom Search API
+- Unsplash - 이미지 API
+- 모든 오픈소스 기여자들
 
 ---
 
-⭐ 이 프로젝트가 도움이 되었다면 스타를 눌러주세요!
+**Version**: 1.0.0  
+**Last Updated**: 2025년 7월 12일

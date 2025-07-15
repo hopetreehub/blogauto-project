@@ -85,7 +85,13 @@ class WordPressModule:
             headers = self._get_auth_headers(wp_config)
             headers.pop('Content-Type')  # GET 요청에서는 불필요
             
+            # 디버깅 정보 로깅
+            logger.info(f"WordPress 연결 테스트 시도: {wp_url}")
+            logger.info(f"사용자명: {wp_config.username}")
+            logger.info(f"비밀번호 길이: {len(wp_config.password)}자")
+            
             response = requests.get(wp_url, headers=headers, timeout=30)
+            logger.info(f"응답 코드: {response.status_code}")
             
             if response.status_code == 200:
                 user_data = response.json()
@@ -114,14 +120,34 @@ class WordPressModule:
                     pass
                     
                 error_msg = error_data.get('message', '인증 실패')
+                error_code = error_data.get('code', 'unknown')
+                
+                logger.error(f"401 인증 실패 - 사이트: {site_url}, 사용자: {wp_config.username}, 오류: {error_msg}")
+                
+                # 사용자명과 비밀번호를 Base64로 디버깅
+                import base64
+                auth_string = f"{wp_config.username}:{wp_config.password}"
+                auth_b64 = base64.b64encode(auth_string.encode('ascii')).decode('ascii')
+                logger.info(f"Auth header: Basic {auth_b64[:20]}...")
+                
+                # 추가 디버깅 정보
+                debug_info = {
+                    'tested_url': wp_url,
+                    'username_length': len(wp_config.username),
+                    'password_length': len(wp_config.password),
+                    'password_format': 'contains_spaces' if ' ' in wp_config.password else 'no_spaces',
+                    'response_headers': dict(response.headers),
+                    'full_response': response.text[:500] if response.text else None
+                }
                 
                 return {
                     'success': False,
                     'error': f'인증 오류 (401): {error_msg}',
-                    'suggestion': 'WordPress 애플리케이션 비밀번호를 확인하세요. WordPress 관리자 → 사용자 → 프로필에서 새 애플리케이션 비밀번호를 생성하세요.',
+                    'suggestion': '다음을 확인해주세요:\n1. WordPress 사이트에 정상 로그인 가능\n2. 애플리케이션 비밀번호 사용 (일반 비밀번호 X)\n3. 사용자명이 정확한지 확인\n4. 비밀번호에 공백이 없는지 확인',
                     'username': wp_config.username,
                     'site_url': site_url,
-                    'error_code': error_data.get('code', 'unknown')
+                    'error_code': error_code,
+                    'debug_info': debug_info
                 }
             elif response.status_code == 403:
                 return {

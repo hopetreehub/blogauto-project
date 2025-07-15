@@ -1,0 +1,132 @@
+{
+  "timestamp": "2025-07-14T02:56:50.132174",
+  "analysis_version": "Expert Level 2.0",
+  "system_status": {},
+  "ui_ux_analysis": {
+    "structure_analysis": {
+      "structure_quality": 45,
+      "design_elements": {
+        "navigation": "Present",
+        "semantic_score": 1
+      },
+      "accessibility": {
+        "features_count": 0
+      },
+      "responsive_design": {},
+      "issues": []
+    },
+    "component_analysis": {
+      "components": {
+        "buttons": 1,
+        "forms": 0,
+        "inputs": 0,
+        "modals": 0,
+        "cards": 0,
+        "icons": 28
+      },
+      "design_patterns": {
+        "grid_layout": true,
+        "flexbox": true,
+        "animations": true,
+        "hover_effects": true,
+        "responsive_text": true
+      },
+      "ui_complexity": "High"
+    },
+    "page_size": 24003,
+    "load_time": 0.103826
+  },
+  "backend_analysis": {
+    "health_check": {
+      "status_code": 200,
+      "response_time": 0.001512,
+      "response_size": 200,
+      "success": true,
+      "error_message": null
+    },
+    "swagger_docs": {
+      "status_code": 200,
+      "response_time": 0.000974,
+      "response_size": 943,
+      "success": true,
+      "error_message": null
+    },
+    "api_info": {
+      "status_code": 404,
+      "response_time": 0.001399,
+      "response_size": 22,
+      "success": false,
+      "error_message": "{\"detail\":\"Not Found\"}"
+    },
+    "keywords_analyze": {
+      "status_code": 401,
+      "response_time": 0.00109,
+      "response_size": 57,
+      "success": false,
+      "error_message": "{\"detail\":\"OpenAI API 키가 필요합니다. 설정 페이지에서 API 키를 입력해주세요.\"}"
+    },
+    "titles_generate": {
+      "status_code": 401,
+      "response_time": 0.001092,
+      "response_size": 57,
+      "success": false,
+      "error_message": "{\"detail\":\"OpenAI API 키가 필요합니다. 설정 페이지에서 API 키를 입력해주세요.\"}"
+    },
+    "content_generate": {
+      "status_code": 401,
+      "response_time": 0.001056,
+      "response_size": 53,
+      "success": false,
+      "error_message": "{\"detail\":\"AI API 키가 필요합니다. 설정 페이지에서 API 키를 입력해주세요.\"}"
+    }
+  },
+  "security_analysis": {
+    "security_score": 105,
+    "issues": [
+      "Content Security Policy 헤더 누락"
+    ],
+    "recommendations": [
+      "HTTPS 강제 적용",
+      "API 키 환경변수 관리",
+      "CSP 헤더 설정",
+      "Rate Limiting 구현",
+      "입력값 Sanitization 강화"
+    ]
+  },
+  "performance_analysis": {
+    "performance_score": 100,
+    "avg_response_time": 0.0011871666666666669,
+    "max_response_time": 0.001512,
+    "issues": [],
+    "recommendations": [
+      "API 응답시간 최적화",
+      "캐싱 시스템 구현",
+      "데이터베이스 쿼리 최적화",
+      "CDN 적용 고려",
+      "이미지 최적화"
+    ]
+  },
+  "critical_issues": [],
+  "recommendations": {
+    "immediate_fixes": [],
+    "short_term_improvements": [
+      "🎨 UI/UX 일관성 개선",
+      "♿ 접근성 기능 강화",
+      "📱 모바일 최적화",
+      "🔄 에러 핸들링 개선"
+    ],
+    "long_term_enhancements": [
+      "🚀 PWA (Progressive Web App) 적용",
+      "📊 사용자 분석 도구 도입",
+      "🤖 AI 기능 확장",
+      "🔧 DevOps 파이프라인 구축"
+    ]
+  },
+  "scores": {
+    "ui_ux_score": 45,
+    "functionality_score": 33.33333333333333,
+    "security_score": 105,
+    "performance_score": 100,
+    "overall_score": 70.83333333333333
+  }
+}

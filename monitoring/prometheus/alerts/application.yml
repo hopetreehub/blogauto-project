@@ -1,0 +1,83 @@
+groups:
+  - name: blogauto_application
+    interval: 30s
+    rules:
+      # API 응답 시간 알림
+      - alert: HighApiResponseTime
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(blogauto_api_request_duration_seconds_bucket[5m])) by (endpoint, le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API response time on {{ $labels.endpoint }}"
+          description: "95th percentile response time is {{ $value }}s for endpoint {{ $labels.endpoint }}"
+          
+      # API 에러율 알림
+      - alert: HighApiErrorRate
+        expr: |
+          sum(rate(blogauto_api_requests_total{status=~"5.."}[5m])) by (endpoint)
+          /
+          sum(rate(blogauto_api_requests_total[5m])) by (endpoint)
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High error rate on {{ $labels.endpoint }}"
+          description: "Error rate is {{ $value | humanizePercentage }} for endpoint {{ $labels.endpoint }}"
+          
+      # Rate Limiting 과다 발생
+      - alert: HighRateLimitRejections
+        expr: |
+          sum(rate(blogauto_rate_limit_rejected_total[5m])) by (endpoint) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High rate limit rejections on {{ $labels.endpoint }}"
+          description: "{{ $value }} requests per second are being rate limited"
+          
+      # API 키 저장 실패
+      - alert: ApiKeyStorageFailure
+        expr: |
+          increase(blogauto_errors_total{endpoint=~".*secure.*"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "API key storage failures detected"
+          description: "{{ $value }} API key storage errors in the last 5 minutes"
+          
+      # 콘텐츠 생성 실패율
+      - alert: ContentGenerationFailure
+        expr: |
+          sum(rate(blogauto_errors_total{endpoint="/api/content/generate"}[5m]))
+          /
+          sum(rate(blogauto_api_requests_total{endpoint="/api/content/generate"}[5m]))
+          > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: business
+        annotations:
+          summary: "High content generation failure rate"
+          description: "{{ $value | humanizePercentage }} of content generation requests are failing"
+          
+      # WordPress 발행 실패
+      - alert: WordPressPublishFailure
+        expr: |
+          increase(blogauto_wordpress_posts_published_total{status="failed"}[5m]) > 3
+        for: 5m
+        labels:
+          severity: critical
+          component: integration
+        annotations:
+          summary: "WordPress publishing failures"
+          description: "{{ $value }} WordPress publish attempts failed in the last 5 minutes"

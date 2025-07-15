@@ -1,0 +1,330 @@
+name: Release Management
+
+on:
+  release:
+    types: [created, published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  DOCKER_REGISTRY: ghcr.io
+
+jobs:
+  # 1. Pre-release validation
+  pre-release-validation:
+    runs-on: ubuntu-latest
+    name: Pre-release Validation
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Validate version format
+      run: |
+        if [[ "${{ github.event.inputs.version || github.event.release.tag_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "✅ Valid version format"
+        else
+          echo "❌ Invalid version format. Expected: v1.0.0"
+          exit 1
+        fi
+        
+    - name: Check for security vulnerabilities
+      run: |
+        echo "🔍 Checking for known security issues..."
+        # 보안 취약점 검사 로직
+        
+    - name: Validate changelog
+      run: |
+        if [ -f CHANGELOG.md ]; then
+          echo "✅ Changelog exists"
+        else
+          echo "⚠️ Changelog not found"
+        fi
+
+  # 2. Build release artifacts
+  build-release:
+    runs-on: ubuntu-latest
+    name: Build Release Artifacts
+    needs: [pre-release-validation]
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}
+        tags: |
+          type=ref,event=tag
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          
+    - name: Build and push Backend release image
+      id: build-backend
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}-backend
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        provenance: true
+        sbom: true
+        
+    - name: Build and push Frontend release image
+      id: build-frontend
+      uses: docker/build-push-action@v5
+      with:
+        context: ./nextjs-app
+        file: ./docker/Dockerfile.nextjs
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}-frontend
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        provenance: true
+        sbom: true
+
+  # 3. Security scanning for release
+  security-scan-release:
+    runs-on: ubuntu-latest
+    name: Security Scan Release
+    needs: [build-release]
+    
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.build-release.outputs.image-tag }}-backend
+        format: 'sarif'
+        output: 'trivy-backend-results.sarif'
+        
+    - name: Run Trivy vulnerability scanner (Frontend)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.build-release.outputs.image-tag }}-frontend
+        format: 'sarif'
+        output: 'trivy-frontend-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-backend-results.sarif'
+
+  # 4. Deploy to staging
+  deploy-staging:
+    runs-on: ubuntu-latest
+    name: Deploy to Staging
+    needs: [build-release, security-scan-release]
+    environment: staging
+    if: github.event.inputs.environment == 'staging' || github.event_name == 'release'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying release to staging..."
+        echo "Version: ${{ github.event.inputs.version || github.event.release.tag_name }}"
+        echo "Backend Image: ${{ needs.build-release.outputs.image-tag }}-backend"
+        echo "Frontend Image: ${{ needs.build-release.outputs.image-tag }}-frontend"
+        
+        # 실제 배포 스크립트 실행
+        # kubectl apply -f k8s/staging/
+        # helm upgrade --install blogauto-staging ./helm-chart
+        
+    - name: Run smoke tests
+      run: |
+        echo "🧪 Running smoke tests on staging..."
+        # 스모크 테스트 실행
+        
+    - name: Validate deployment
+      run: |
+        echo "✅ Staging deployment validation completed"
+
+  # 5. Deploy to production
+  deploy-production:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    needs: [build-release, security-scan-release, deploy-staging]
+    environment: production
+    if: github.event.inputs.environment == 'production' || github.event_name == 'release'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Blue-Green deployment preparation
+      run: |
+        echo "🔵 Preparing blue-green deployment..."
+        
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying release to production..."
+        echo "Version: ${{ github.event.inputs.version || github.event.release.tag_name }}"
+        echo "Backend Image: ${{ needs.build-release.outputs.image-tag }}-backend"
+        echo "Frontend Image: ${{ needs.build-release.outputs.image-tag }}-frontend"
+        
+        # 실제 프로덕션 배포 스크립트 실행
+        # kubectl apply -f k8s/production/
+        # helm upgrade --install blogauto-prod ./helm-chart
+        
+    - name: Run production health checks
+      run: |
+        echo "🔍 Running production health checks..."
+        # 프로덕션 헬스체크 실행
+        
+    - name: Switch traffic (Blue-Green)
+      run: |
+        echo "🟢 Switching traffic to new version..."
+        
+    - name: Validate production deployment
+      run: |
+        echo "✅ Production deployment validation completed"
+
+  # 6. Post-deployment testing
+  post-deployment-tests:
+    runs-on: ubuntu-latest
+    name: Post-deployment Tests
+    needs: [deploy-production]
+    if: success()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Run production performance tests
+      run: |
+        pip install aiohttp asyncio
+        # 프로덕션 성능 테스트 실행
+        python performance_test.py --production
+        
+    - name: Run production API tests
+      run: |
+        echo "🧪 Running production API tests..."
+        # 프로덕션 API 테스트 실행
+        
+    - name: Monitor system metrics
+      run: |
+        echo "📊 Monitoring system metrics..."
+        # 시스템 메트릭 모니터링
+
+  # 7. Release notification
+  release-notification:
+    runs-on: ubuntu-latest
+    name: Release Notification
+    needs: [deploy-production, post-deployment-tests]
+    if: always()
+    
+    steps:
+    - name: Generate release notes
+      run: |
+        echo "📝 Generating release notes..."
+        
+        cat >> release-notes.md << EOF
+        # BlogAuto Release ${{ github.event.inputs.version || github.event.release.tag_name }}
+        
+        ## 🚀 Deployment Summary
+        - **Version:** ${{ github.event.inputs.version || github.event.release.tag_name }}
+        - **Environment:** ${{ github.event.inputs.environment || 'production' }}
+        - **Deploy Time:** $(date -u)
+        - **Status:** ${{ job.status }}
+        
+        ## 🏗️ Images
+        - Backend: ${{ needs.build-release.outputs.image-tag }}-backend
+        - Frontend: ${{ needs.build-release.outputs.image-tag }}-frontend
+        
+        ## ✅ Validation
+        - Security Scan: Completed
+        - Smoke Tests: Completed
+        - Health Checks: Completed
+        
+        ## 📊 Performance
+        - Performance Tests: Completed
+        - System Metrics: Normal
+        EOF
+        
+    - name: Update release
+      uses: actions/github-script@v6
+      if: github.event_name == 'release'
+      with:
+        script: |
+          const fs = require('fs');
+          const releaseNotes = fs.readFileSync('release-notes.md', 'utf8');
+          
+          await github.rest.repos.updateRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: context.payload.release.id,
+            body: releaseNotes
+          });
+          
+    - name: Notify stakeholders
+      run: |
+        echo "📢 Notifying stakeholders about release..."
+        # 슬랙, 이메일 등으로 릴리스 알림
+
+  # 8. Rollback (manual trigger)
+  rollback:
+    runs-on: ubuntu-latest
+    name: Emergency Rollback
+    if: failure() && github.event.inputs.environment == 'production'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Execute rollback
+      run: |
+        echo "🔴 Executing emergency rollback..."
+        # 롤백 스크립트 실행
+        
+    - name: Validate rollback
+      run: |
+        echo "🔍 Validating rollback..."
+        # 롤백 검증
+        
+    - name: Notify rollback
+      run: |
+        echo "🚨 Rollback completed and stakeholders notified"

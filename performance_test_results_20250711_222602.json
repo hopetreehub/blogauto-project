@@ -1,0 +1,65 @@
+{
+  "api_tests": [
+    {
+      "endpoint": "/",
+      "method": "GET",
+      "avg_time_ms": 2.18,
+      "min_time_ms": 1.74,
+      "max_time_ms": 3.42,
+      "last_status": 404
+    },
+    {
+      "endpoint": "/api/health",
+      "method": "GET",
+      "avg_time_ms": 1.97,
+      "min_time_ms": 1.84,
+      "max_time_ms": 2.24,
+      "last_status": 200
+    },
+    {
+      "endpoint": "/api/auth/login",
+      "method": "POST",
+      "avg_time_ms": 1.87,
+      "min_time_ms": 1.76,
+      "max_time_ms": 1.97,
+      "last_status": 404
+    }
+  ],
+  "db_tests": [
+    {
+      "query": "SELECT COUNT(*) FROM users",
+      "time_ms": 3.367185592651367,
+      "result": "0 users"
+    },
+    {
+      "query": "Complex query (generated_titles)",
+      "time_ms": 1.3740062713623047,
+      "result": "0 records"
+    },
+    {
+      "query": "Check indexes",
+      "time_ms": 1.1699199676513672,
+      "result": "17 indexes found"
+    }
+  ],
+  "wordpress_tests": [
+    {
+      "test": "Login",
+      "time_ms": 1.8854141235351562,
+      "status": "Failed",
+      "error": "{\"detail\":\"Not Found\"}"
+    }
+  ],
+  "system_metrics": {
+    "start": {
+      "cpu_percent": 0,
+      "memory_percent": 79.4,
+      "timestamp": "2025-07-11T22:26:00.575859"
+    },
+    "end": {
+      "cpu_percent": 0,
+      "memory_percent": 79.41,
+      "timestamp": "2025-07-11T22:26:02.124274"
+    }
+  }
+}

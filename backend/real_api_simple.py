@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Annotated
@@ -10,11 +10,63 @@ import openai
 import re
 import requests
 import base64
+import os
 from urllib.parse import urljoin
 import mimetypes
 from wordpress_module import wordpress_module, WordPressPost as WPPost, WordPressConfig as WPConfig
+from wordpress_auth_test import run_comprehensive_test
+# 독립적인 이미지 생성 모듈 임포트
+from image_generator import image_generator
+# 콘텐츠 저장 시스템 임포트
+from content_storage import content_storage
+# 다중 AI 제공자 시스템 임포트
+from multi_ai_providers import multi_ai_provider
+# SNS 라우터 임포트
+from routes.sns_routes import router as sns_router
+# 언어 라우터 임포트
+from routes.language_routes import router as language_router
+# A/B 테스팅 라우터 임포트
+from routes.testing_routes import router as testing_router
+# 성능 최적화 모듈 임포트
+try:
+    from caching_system import cache_manager, cached, warm_cache, get_cache_status
+    CACHE_ENABLED = True
+except ImportError:
+    CACHE_ENABLED = False
+    print("캐싱 시스템 비활성화 - Redis 연결 필요")
+
+try:
+    from performance_optimizer import response_optimizer
+    PERFORMANCE_ENABLED = True
+except ImportError:
+    PERFORMANCE_ENABLED = False
+    print("성능 최적화 비활성화")
+
+# 나머지 모듈은 임시로 주석 처리
+# from rate_limiter import rate_limit_middleware, rate_limiter
+# from crypto_utils import secure_api_manager, crypto_manager
+# from monitoring import monitoring, metrics_endpoint, health_check_detailed
+# from sentry_config import initialize_sentry, error_tracker
+
+# 임시로 주석 처리
+# initialize_sentry()
+# monitoring.initialize_sentry(
+#     environment=os.environ.get("ENVIRONMENT", "development"),
+#     traces_sample_rate=0.1
+# )
 
 app = FastAPI(title="블로그 자동화 API (실제 버전)")
+
+# 성능 최적화 미들웨어 적용 (압축 기능 임시 비활성화)
+# if PERFORMANCE_ENABLED:
+#     app.middleware("http")(response_optimizer.compression_middleware)
+#     print("Gzip 압축 미들웨어 활성화")
+print("Gzip 압축 미들웨어 비활성화 (안정성 우선)")
+
+# 나머지 미들웨어는 임시로 주석 처리
+# app.middleware("http")(performance_monitor.monitor_request)
+# app.middleware("http")(monitoring.prometheus_middleware)
+# app.middleware("http")(rate_limit_middleware)
 
 # CORS 설정
 app.add_middleware(
@@ -24,6 +76,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+async def root():
+    return {
+        "message": "블로그 자동화 API (실제 버전)",
+        "version": "1.0.0",
+        "endpoints": {
+            "keywords": "/api/keywords/analyze",
+            "titles": "/api/titles/generate",
+            "content": "/api/content/generate",
+            "wordpress": "/api/wordpress/post"
+        }
+    }
 
 # 요청/응답 모델들
 class KeywordAnalysisRequest(BaseModel):
@@ -104,6 +169,12 @@ class ImageGenerationRequest(BaseModel):
     quality: str = "standard"  # standard, hd
     style: str = "natural"  # natural, vivid
 
+class GuidelinesUpdate(BaseModel):
+    keyword_guidelines: str = ""
+    title_guidelines: str = ""
+    content_guidelines: str = ""
+    seo_guidelines: str = ""
+
 # 간단한 통계 저장
 stats = {
     "keywords_analyzed": 0,
@@ -113,8 +184,115 @@ stats = {
     "seo_scores": []
 }
 
-async def get_openai_content(title: str, keyword: str, length: str, guidelines: str, api_key: str):
-    """OpenAI API를 사용하여 지침 기반 콘텐츠 생성"""
+# 지침 저장소
+guidelines = {
+    "keyword_guidelines": """1. 검색량 1,000 이상의 키워드를 우선 추천
+2. 경쟁도 0.7 이하의 키워드를 선별
+3. 롱테일 키워드를 포함하여 다양성 확보
+4. 상업적 의도가 있는 키워드 포함
+5. 계절성 및 트렌드를 고려한 키워드 제안""",
+    
+    "title_guidelines": """1. 길이: 30-60자 사이로 작성
+2. 숫자를 포함하여 구체성 확보 (예: 7가지, TOP 10)
+3. 감정적 단어나 파워 워드 사용 (완벽, 최고, 필수 등)
+4. 주요 키워드를 제목 앞부분에 배치
+5. 현재 연도를 포함하여 최신성 강조
+6. 호기심을 유발하는 요소 포함""",
+    
+    "content_guidelines": """1. 도입부에서 문제 제기 및 공감대 형성
+2. 본문에서 구체적인 해결책과 방법 제시
+3. 실제 사례나 예시를 통한 신뢰성 확보
+4. 단락당 3-4문장으로 가독성 향상
+5. 소제목(H2, H3)을 활용한 구조화
+6. 리스트와 표를 활용한 정보 정리
+7. 이미지 2-3개 포함하여 시각적 효과
+8. 결론에서 핵심 내용 요약 및 행동 유도""",
+    
+    "seo_guidelines": """1. 키워드 밀도 2-3% 유지
+2. 메타 설명 120-160자로 작성
+3. H1-H3 태그 계층 구조 준수
+4. 내부 링크 3-5개 포함
+5. 이미지 alt 텍스트 최적화
+6. 페이지 로딩 속도 3초 이내
+7. 모바일 친화적 구조
+8. 구조화 데이터 마크업 적용"""
+}
+
+async def get_ai_content(title: str, keyword: str, length: str, provider: Optional[str] = None):
+    """다중 AI 제공자를 통한 지침 기반 콘텐츠 생성"""
+    try:
+        # 길이에 따른 단어 수 설정
+        word_counts = {
+            "short": "500-800자",
+            "medium": "800-1500자", 
+            "long": "1500-3000자"
+        }
+        target_length = word_counts.get(length, "800-1500자")
+        
+        # 서버에 저장된 지침 사용
+        content_guidelines = guidelines.get('content_guidelines', '')
+        seo_guidelines = guidelines.get('seo_guidelines', '')
+        
+        guidelines_text = f"""
+다음 작성 지침을 반드시 따라주세요:
+
+### 콘텐츠 작성 지침:
+{content_guidelines}
+
+### SEO 최적화 지침:
+{seo_guidelines}
+"""
+        
+        # 현재 시점 정보
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+        
+        # 계절/시점 맞춤 표현
+        season_context = ""
+        if current_month in [12, 1, 2]:
+            season_context = "연말연시와 새해 계획"
+        elif current_month in [3, 4, 5]:
+            season_context = "봄철 새로운 시작"
+        elif current_month in [6, 7, 8]:
+            season_context = "여름철 활발한 활동"
+        else:
+            season_context = "가을철 성과 정리"
+        
+        # 프롬프트 구성
+        prompt = f"""현재 시점: {current_year}년 {current_month}월 ({season_context} 시즌)
+주제: {title}
+주요 키워드: {keyword}
+목표 길이: {target_length}
+
+{guidelines_text}
+
+위 지침을 철저히 따라서 고품질 블로그 콘텐츠를 작성해주세요:
+
+1. 매력적인 도입부로 시작
+2. 구조화된 본문 (소제목 활용)
+3. 실용적인 정보와 팁 제공
+4. SEO 최적화된 자연스러운 키워드 배치
+5. 행동 유도하는 결론
+
+반드시 HTML 형식으로 작성하되, 깔끔하고 읽기 쉬운 구조로 만들어주세요."""
+
+        # 다중 AI 제공자를 통한 생성
+        result = await multi_ai_provider.generate_content(prompt, provider)
+        
+        if result["success"]:
+            return {
+                "content": result["content"],
+                "provider": result["provider"],
+                "is_free": result.get("is_free", False)
+            }
+        else:
+            raise Exception(result.get("error", "AI 콘텐츠 생성 실패"))
+            
+    except Exception as e:
+        raise Exception(f"콘텐츠 생성 오류: {str(e)}")
+
+async def get_openai_content(title: str, keyword: str, length: str, api_key: str):
+    """OpenAI API를 사용하여 지침 기반 콘텐츠 생성 (레거시 지원)"""
     try:
         # OpenAI 클라이언트 설정
         client = openai.OpenAI(api_key=api_key)
@@ -127,15 +305,11 @@ async def get_openai_content(title: str, keyword: str, length: str, guidelines: 
         }
         target_length = word_counts.get(length, "800-1500자")
         
-        # 지침 처리
-        guidelines_text = ""
-        if guidelines:
-            try:
-                guidelines_data = json.loads(guidelines)
-                content_guidelines = guidelines_data.get('content_guidelines', '')
-                seo_guidelines = guidelines_data.get('seo_guidelines', '')
-                
-                guidelines_text = f"""
+        # 서버에 저장된 지침 사용
+        content_guidelines = guidelines.get('content_guidelines', '')
+        seo_guidelines = guidelines.get('seo_guidelines', '')
+        
+        guidelines_text = f"""
 다음 작성 지침을 반드시 따라주세요:
 
 ### 콘텐츠 작성 지침:
@@ -144,8 +318,6 @@ async def get_openai_content(title: str, keyword: str, length: str, guidelines: 
 ### SEO 최적화 지침:
 {seo_guidelines}
 """
-            except:
-                guidelines_text = "기본 SEO 최적화 원칙을 따라 작성해주세요."
         
         # 현재 시점 정보
         current_year = datetime.now().year
@@ -203,6 +375,149 @@ async def get_openai_content(title: str, keyword: str, length: str, guidelines: 
         print(f"OpenAI API 오류: {str(e)}")
         # API 오류 시 기본 템플릿 반환
         return generate_fallback_content(title, keyword)
+
+async def get_openai_keywords(keyword: str, api_key: str, max_results: int = 10):
+    """OpenAI API를 사용하여 지침 기반 키워드 생성"""
+    try:
+        client = openai.OpenAI(api_key=api_key)
+        
+        # 서버에 저장된 지침 사용
+        keyword_guidelines = guidelines.get('keyword_guidelines', '')
+        
+        guidelines_text = f"""
+다음 키워드 분석 지침을 반드시 따라주세요:
+{keyword_guidelines}
+"""
+        
+        prompt = f"""주요 키워드: {keyword}
+
+{guidelines_text}
+
+위 지침에 따라 SEO에 최적화된 연관 키워드를 {max_results}개 생성해주세요.
+
+각 키워드는 다음 정보를 포함해야 합니다:
+- keyword: 연관 키워드
+- search_volume: 예상 월간 검색량 (1000-50000 범위)
+- competition: 경쟁도 (0.1-1.0 범위)
+- cpc: 예상 클릭당 비용 (100-5000원 범위)
+- opportunity_score: 기회 점수 (0-100)
+
+JSON 배열 형식으로만 응답해주세요. 예시:
+[
+  {{"keyword": "블로그 작성 방법", "search_volume": 5500, "competition": 0.45, "cpc": 850, "opportunity_score": 78}}
+]
+"""
+
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "당신은 SEO 키워드 분석 전문가입니다. 사용자가 제공한 지침에 따라 정확한 키워드 분석 결과를 제공합니다."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5,
+            max_tokens=1000
+        )
+        
+        content = response.choices[0].message.content
+        # JSON 파싱
+        keywords_data = json.loads(content)
+        
+        return keywords_data
+        
+    except Exception as e:
+        print(f"OpenAI API 오류: {str(e)}")
+        # 오류 시 기본 키워드 반환
+        return generate_fallback_keywords(keyword, max_results)
+
+async def get_openai_titles(keyword: str, api_key: str, count: int = 10):
+    """OpenAI API를 사용하여 지침 기반 제목 생성"""
+    try:
+        client = openai.OpenAI(api_key=api_key)
+        
+        # 서버에 저장된 지침 사용
+        title_guidelines = guidelines.get('title_guidelines', '')
+        
+        guidelines_text = f"""
+다음 제목 작성 지침을 반드시 따라주세요:
+{title_guidelines}
+"""
+        
+        current_year = datetime.now().year
+        
+        prompt = f"""주요 키워드: {keyword}
+현재 연도: {current_year}
+
+{guidelines_text}
+
+위 지침에 따라 SEO에 최적화된 블로그 제목을 {count}개 생성해주세요.
+
+각 제목은 다음 정보를 포함해야 합니다:
+- title: 제목
+- score: SEO 점수 (0-100)
+- reason: 점수가 높은 이유
+
+JSON 배열 형식으로만 응답해주세요. 예시:
+[
+  {{"title": "2025년 블로그 작성 완벽 가이드: 초보자도 따라하는 7단계", "score": 92, "reason": "최적 길이(35자), 구체적 숫자 포함, 현재 연도 반영"}}
+]
+"""
+
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "당신은 SEO 제목 작성 전문가입니다. 사용자가 제공한 지침에 따라 클릭률이 높은 제목을 생성합니다."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        content = response.choices[0].message.content
+        # JSON 파싱
+        titles_data = json.loads(content)
+        
+        return titles_data
+        
+    except Exception as e:
+        print(f"OpenAI API 오류: {str(e)}")
+        # 오류 시 기본 제목 반환
+        return generate_fallback_titles(keyword, count)
+
+def generate_fallback_keywords(keyword: str, max_results: int):
+    """API 오류 시 사용할 기본 키워드"""
+    seo_suffixes = [
+        "방법", "가이드", "팁", "전략", "노하우", 
+        "사례", "추천", "비교", "후기", "완벽정리"
+    ]
+    
+    keywords = []
+    for i in range(min(max_results, len(seo_suffixes))):
+        keywords.append({
+            "keyword": f"{keyword} {seo_suffixes[i]}",
+            "search_volume": random.randint(1000, 25000),
+            "competition": round(random.uniform(0.2, 0.7), 2),
+            "cpc": random.randint(300, 1500),
+            "opportunity_score": round(random.uniform(60, 95), 1)
+        })
+    return keywords
+
+def generate_fallback_titles(keyword: str, count: int):
+    """API 오류 시 사용할 기본 제목"""
+    current_year = datetime.now().year
+    patterns = [
+        f"{keyword} 완벽 가이드: 초보자부터 전문가까지",
+        f"{current_year}년 최신 {keyword} 트렌드와 실전 활용법",
+        f"{keyword}의 숨겨진 비밀 7가지 완전 공개"
+    ]
+    
+    titles = []
+    for i in range(min(count, len(patterns))):
+        titles.append({
+            "title": patterns[i],
+            "score": round(random.uniform(75, 95), 1),
+            "reason": "SEO 최적화 패턴 적용"
+        })
+    return titles
 
 def generate_fallback_content(title: str, keyword: str):
     """API 오류 시 사용할 기본 템플릿"""
@@ -405,44 +720,36 @@ async def get_dashboard_stats():
     )
 
 @app.post("/api/keywords/analyze")
+# @cached(prefix="keywords", ttl=3600, compress=True)
 async def analyze_keywords(
     request: KeywordAnalysisRequest,
     x_openai_key: Annotated[str | None, Header()] = None,
     x_guidelines: Annotated[str | None, Header()] = None
 ):
+    # API 키 조회
     if not x_openai_key:
         raise HTTPException(status_code=401, detail="OpenAI API 키가 필요합니다. 설정 페이지에서 API 키를 입력해주세요.")
     
-    # 지침 기반 키워드 생성 (실제로는 OpenAI API 호출)
-    # 여기서는 지침을 반영한 시뮬레이션 데이터 반환
+    # OpenAI API를 사용하여 지침 기반 키워드 생성
+    keywords_data = await get_openai_keywords(
+        keyword=request.keyword,
+        api_key=x_openai_key,
+        max_results=request.max_results
+    )
     
-    # SEO 최적화된 키워드 접미사 (지침 반영)
-    seo_suffixes = [
-        "방법", "가이드", "팁", "전략", "노하우", 
-        "사례", "추천", "비교", "후기", "완벽정리",
-        "실전", "기초", "트렌드", "비밀", "완전정복"
-    ]
-    
+    # 응답 데이터를 KeywordAnalysisResponse 객체로 변환
     keywords = []
-    for i in range(min(request.max_results, len(seo_suffixes))):
-        # 지침에 따른 품질 점수 계산
-        base_score = random.uniform(60, 95)
-        
-        # 검색량 1,000 이상 우선 (지침 반영)
-        search_volume = random.randint(1000, 25000)
-        
-        # 경쟁도 0.7 이하 우선 (지침 반영) 
-        competition = round(random.uniform(0.2, 0.7), 2)
-        
+    for kw_data in keywords_data:
         keywords.append(KeywordAnalysisResponse(
-            keyword=f"{request.keyword} {seo_suffixes[i]}",
-            search_volume=search_volume,
-            competition=competition,
-            cpc=random.randint(300, 1500),
-            opportunity_score=round(base_score, 1)
+            keyword=kw_data.get("keyword", ""),
+            search_volume=kw_data.get("search_volume", 0),
+            competition=kw_data.get("competition", 0.5),
+            cpc=kw_data.get("cpc", 500),
+            opportunity_score=kw_data.get("opportunity_score", 70)
         ))
     
     stats["keywords_analyzed"] += len(keywords)
+    
     return keywords
 
 @app.post("/api/titles/generate")
@@ -454,65 +761,20 @@ async def generate_titles(
     if not x_openai_key:
         raise HTTPException(status_code=401, detail="OpenAI API 키가 필요합니다. 설정 페이지에서 API 키를 입력해주세요.")
     
-    # 현재 연도 가져오기
-    current_year = datetime.now().year
+    # OpenAI API를 사용하여 지침 기반 제목 생성
+    titles_data = await get_openai_titles(
+        keyword=request.keyword,
+        api_key=x_openai_key,
+        count=request.count
+    )
     
-    # 지침 기반 제목 패턴 (SEO 최적화 반영, 동적 연도 적용)
-    seo_patterns = [
-        f"{request.keyword} 완벽 가이드: 초보자부터 전문가까지",
-        f"{current_year}년 최신 {request.keyword} 트렌드와 실전 활용법", 
-        f"{request.keyword}의 숨겨진 비밀 7가지 완전 공개",
-        f"실제로 효과본 {request.keyword} 전략 10가지",
-        f"{request.keyword} 마스터하기: 단계별 실전 가이드",
-        f"전문가가 알려주는 {request.keyword} 성공 노하우",
-        f"{current_year} {request.keyword} 완전 정복 로드맵",
-        f"지금 당장 시작하는 {request.keyword} 성공 전략",
-        f"{request.keyword} 실무진이 공개하는 핵심 노하우",
-        f"최신 {request.keyword} 동향과 미래 전망 분석"
-    ]
-    
+    # 응답 데이터를 TitleGenerationResponse 객체로 변환
     titles = []
-    for i in range(min(request.count, len(seo_patterns))):
-        title = seo_patterns[i]
-        
-        # 제목 길이 체크 (30-60자 지침 반영)
-        title_length = len(title)
-        score_bonus = 0
-        
-        if 30 <= title_length <= 60:
-            score_bonus += 10  # 최적 길이
-        elif title_length < 30:
-            score_bonus -= 5   # 너무 짧음
-        elif title_length > 60:
-            score_bonus -= 10  # 너무 김
-        
-        # 숫자 포함 시 점수 가산 (지침 반영)
-        if any(char.isdigit() for char in title):
-            score_bonus += 5
-        
-        # 호기심 유발 키워드 점수 가산
-        curiosity_words = ["비밀", "완전", "실제", "효과", "성공", "마스터"]
-        if any(word in title for word in curiosity_words):
-            score_bonus += 8
-        
-        base_score = random.uniform(75, 85)
-        final_score = min(100, base_score + score_bonus)
-        
-        # 개선 이유 생성
-        reasons = []
-        if 30 <= title_length <= 60:
-            reasons.append("최적 길이(30-60자)")
-        if any(char.isdigit() for char in title):
-            reasons.append("구체적 숫자 포함")
-        if any(word in title for word in curiosity_words):
-            reasons.append("호기심 유발 요소")
-        
-        reason = "SEO 최적화: " + ", ".join(reasons) if reasons else "기본 SEO 원칙 적용"
-        
+    for title_data in titles_data:
         titles.append(TitleGenerationResponse(
-            title=title,
-            score=round(final_score, 1),
-            reason=reason
+            title=title_data.get("title", ""),
+            score=title_data.get("score", 80),
+            reason=title_data.get("reason", "SEO 최적화 패턴 적용")
         ))
     
     stats["titles_generated"] += len(titles)
@@ -522,19 +784,39 @@ async def generate_titles(
 async def generate_content(
     request: ContentGenerationRequest,
     x_openai_key: Annotated[str | None, Header()] = None,
-    x_guidelines: Annotated[str | None, Header()] = None
+    x_guidelines: Annotated[str | None, Header()] = None,
+    x_ai_provider: Annotated[str | None, Header()] = None
 ):
-    if not x_openai_key:
-        raise HTTPException(status_code=401, detail="OpenAI API 키가 필요합니다. 설정 페이지에서 API 키를 입력해주세요.")
-    
-    # 실제 OpenAI API를 사용하여 지침 기반 콘텐츠 생성
-    content = await get_openai_content(
-        title=request.title,
-        keyword=request.keyword,
-        length=request.length,
-        guidelines=x_guidelines or "",
-        api_key=x_openai_key
-    )
+    # 다중 AI 제공자 시스템 사용
+    try:
+        # AI 제공자 지정이 있으면 사용, 없으면 자동 선택
+        result = await get_ai_content(
+            title=request.title,
+            keyword=request.keyword,
+            length=request.length,
+            provider=x_ai_provider
+        )
+        
+        content = result["content"]
+        provider_used = result["provider"]
+        is_free = result.get("is_free", False)
+        
+    except Exception as e:
+        # 폴백: OpenAI API 키가 있으면 사용
+        if x_openai_key:
+            content = await get_openai_content(
+                title=request.title,
+                keyword=request.keyword,
+                length=request.length,
+                api_key=x_openai_key
+            )
+            provider_used = "openai"
+            is_free = False
+        else:
+            raise HTTPException(
+                status_code=401, 
+                detail="AI API 키가 필요합니다. 설정 페이지에서 API 키를 입력해주세요."
+            )
     
     # 지침 기반 품질 평가
     word_count = len(content.replace(" ", ""))
@@ -580,6 +862,30 @@ async def generate_content(
     stats["content_generated"] += 1
     stats["seo_scores"].append(seo_score)
     
+    # 생성된 콘텐츠 자동 저장
+    try:
+        content_data = {
+            "title": request.title,
+            "keyword": request.keyword,
+            "content": content,
+            "content_type": "blog_post",
+            "seo_score": seo_score,
+            "metadata": {
+                "word_count": word_count,
+                "readability_score": round(random.uniform(75, 90), 1),
+                "seo_factors": seo_factors,
+                "generation_params": {
+                    "length": request.length,
+                    "tone": request.tone,
+                    "language": request.language
+                }
+            }
+        }
+        content_id = content_storage.save_content(content_data)
+        print(f"✅ 콘텐츠 저장 완료: {content_id}")
+    except Exception as e:
+        print(f"❌ 콘텐츠 저장 실패: {str(e)}")
+    
     return ContentGenerationResponse(
         content=content,
         seo_score=seo_score,
@@ -604,6 +910,25 @@ async def analyze_seo(request: dict):
 async def save_settings(settings: dict):
     # 실제로는 서버에 저장하지 않고 성공만 반환
     return {"status": "success", "message": "설정이 저장되었습니다"}
+
+@app.get("/api/guidelines")
+async def get_guidelines():
+    """현재 지침 조회"""
+    return guidelines
+
+@app.post("/api/guidelines")
+async def update_guidelines(update: GuidelinesUpdate):
+    """지침 업데이트"""
+    if update.keyword_guidelines:
+        guidelines["keyword_guidelines"] = update.keyword_guidelines
+    if update.title_guidelines:
+        guidelines["title_guidelines"] = update.title_guidelines
+    if update.content_guidelines:
+        guidelines["content_guidelines"] = update.content_guidelines
+    if update.seo_guidelines:
+        guidelines["seo_guidelines"] = update.seo_guidelines
+    
+    return {"status": "success", "message": "지침이 업데이트되었습니다", "guidelines": guidelines}
 
 # WordPress 관련 엔드포인트들
 @app.post("/api/wordpress/test-connection")
@@ -906,8 +1231,670 @@ async def get_wp_tags_new(
     result = await wordpress_module.get_tags(wp_config)
     return result
 
+@app.post("/api/wordpress/debug-auth")
+async def debug_wordpress_auth(
+    wp_config: WordPressConfig
+):
+    """WordPress 인증 종합 디버깅"""
+    try:
+        # 종합적인 인증 테스트 실행
+        debug_results = run_comprehensive_test(
+            wp_config.site_url,
+            wp_config.username, 
+            wp_config.password
+        )
+        
+        return {
+            'success': True,
+            'debug_results': debug_results,
+            'recommendations': _generate_auth_recommendations(debug_results)
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'디버깅 실행 오류: {str(e)}'
+        }
+
+def _generate_auth_recommendations(debug_results: dict) -> list:
+    """디버깅 결과를 바탕으로 권장사항 생성"""
+    recommendations = []
+    
+    # REST API 접근성 체크
+    if not debug_results['tests'].get('rest_api_check', {}).get('success', False):
+        recommendations.append({
+            'priority': 'high',
+            'issue': 'REST API 접근 불가',
+            'solution': '1. WordPress 사이트 URL 확인 (https:// 포함)\n2. 설정 > 고유주소에서 "일반" 또는 "게시물명" 선택\n3. 보안 플러그인(Wordfence, Sucuri 등) REST API 차단 해제\n4. .htaccess 파일에서 REST API 차단 규칙 제거'
+        })
+    
+    # 인증 관련 권장사항
+    basic_auth = debug_results['tests'].get('basic_auth', {})
+    app_password = debug_results['tests'].get('app_password', {})
+    
+    if not basic_auth.get('success', False):
+        if basic_auth.get('status_code') == 401:
+            # 비밀번호 길이 분석
+            pwd_analysis = app_password.get('password_analysis', {})
+            pwd_length = pwd_analysis.get('length', 0)
+            has_spaces = pwd_analysis.get('has_spaces', False)
+            
+            solution_parts = [
+                '🚨 Basic Authentication 플러그인이 필요합니다!',
+                '',
+                '📌 즉시 해결 방법:',
+                '1. WordPress 관리자 대시보드 로그인',
+                '2. 플러그인 → 새로 추가',
+                '3. "JSON Basic Authentication" 또는 "Application Passwords" 검색',
+                '4. 설치 및 활성화',
+                '',
+                '🔑 Application Password 생성:',
+                '1. 사용자 → 프로필 메뉴',
+                '2. "애플리케이션 비밀번호" 섹션 찾기',
+                '3. 새 애플리케이션 이름 입력 (예: BlogAuto)',
+                '4. "새 애플리케이션 비밀번호 추가" 클릭',
+                '5. 생성된 24자 비밀번호를 정확히 복사',
+                '',
+                f'❌ 현재 비밀번호: {pwd_length}자',
+                '✅ 올바른 길이: 24자 (공백 제외)',
+                '',
+                '⚙️ 해결 방법:',
+                '',
+                '1️⃣ .htaccess 파일 수정 (WordPress 루트):',
+                '# BEGIN WordPress Authorization 위에 추가',
+                '<IfModule mod_rewrite.c>',
+                'RewriteEngine On',
+                'RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]',
+                '</IfModule>',
+                '',
+                '2️⃣ wp-config.php 수정:',
+                '/* That\'s all, stop editing! */ 위에 추가',
+                'if (!isset($_SERVER[\'HTTP_AUTHORIZATION\'])) {',
+                '    if (isset($_SERVER[\'REDIRECT_HTTP_AUTHORIZATION\'])) {',
+                '        $_SERVER[\'HTTP_AUTHORIZATION\'] = $_SERVER[\'REDIRECT_HTTP_AUTHORIZATION\'];',
+                '    }',
+                '}',
+            ]
+            
+            if pwd_length == 29 and has_spaces:
+                solution_parts.append('• 현재 29자(공백 포함) → 공백 제거하면 24자')
+            
+            recommendations.append({
+                'priority': 'high',
+                'issue': '인증 실패 (401) - Application Password 오류',
+                'solution': '\n'.join(solution_parts)
+            })
+            
+            # 추가 해결책
+            recommendations.append({
+                'priority': 'high',
+                'issue': '401 오류 추가 확인사항',
+                'solution': '1. 사용자명: 이메일이 아닌 WordPress 사용자명 사용\n2. WordPress 버전: 5.6 이상 필요 (Application Password 기본 지원)\n3. PHP 버전: 5.6 이상 필요\n4. 플러그인: "Application Passwords" 플러그인 설치 필요할 수 있음\n5. 서버 설정: HTTP Authorization 헤더 차단 여부 확인'
+            })
+        elif basic_auth.get('status_code') == 403:
+            recommendations.append({
+                'priority': 'high',
+                'issue': '권한 부족 (403)',
+                'solution': '1. 관리자 권한 계정 사용\n2. 사용자 권한 확인: 편집자 이상\n3. REST API 권한 설정 확인'
+            })
+    
+    # Application Password 형식 체크
+    if app_password and not app_password.get('is_app_password_format', False):
+        pwd_analysis = app_password.get('password_analysis', {})
+        recommendations.append({
+            'priority': 'medium',
+            'issue': 'Application Password 형식 오류',
+            'solution': f'❌ 현재: {pwd_analysis.get("length", 0)}자\n✅ 올바른 형식: 24자 (예: "abcd efgh ijkl mnop qrst uvwx")\n\n일반 비밀번호가 아닌 Application Password를 사용하세요!'
+        })
+    
+    # WordPress.com 호스팅 체크
+    wpcom_check = debug_results['tests'].get('wpcom_check', {})
+    if wpcom_check.get('is_wpcom', False):
+        recommendations.append({
+            'priority': 'high',
+            'issue': 'WordPress.com 호스팅',
+            'solution': 'WordPress.com은 다른 인증 방식 필요:\n1. Jetpack 플러그인 설치 및 연결\n2. WordPress.com 개발자 콘솔에서 앱 등록\n3. OAuth 2.0 인증 사용\n4. 또는 자체 호스팅 WordPress로 이전'
+        })
+    
+    # 모든 테스트 실패
+    all_failed = all(not test.get('success', False) for test in debug_results['tests'].values() if isinstance(test, dict))
+    if all_failed:
+        recommendations.append({
+            'priority': 'high',
+            'issue': '모든 인증 방법 실패',
+            'solution': '🆘 긴급 점검사항:\n1. WordPress 사이트 온라인 상태 확인\n2. 호스팅 업체에 REST API 차단 여부 문의\n3. CloudFlare 등 CDN/방화벽 설정 확인\n4. WordPress 재설치 또는 복구 모드 시도'
+        })
+    
+    if not recommendations:
+        recommendations.append({
+            'priority': 'info',
+            'issue': '추가 확인 필요',
+            'solution': '기본 테스트는 통과했지만 문제가 지속되면:\n1. 캐시 플러그인 비활성화\n2. 보안 플러그인 일시 비활성화\n3. 테마를 기본 테마로 변경\n4. 플러그인 충돌 확인'
+        })
+    
+    return recommendations
+
+@app.get("/api/admin/rate-limit-stats")
+async def get_rate_limit_stats():
+    """Rate Limiting 통계 조회 (관리자용)"""
+    stats = rate_limiter.get_stats()
+    
+    # 추가 상세 정보
+    current_time = datetime.now()
+    detailed_stats = {
+        **stats,
+        "current_time": current_time.isoformat(),
+        "blocked_ips_details": [
+            {
+                "ip": ip,
+                "unblock_time": unblock_time.isoformat(),
+                "remaining_seconds": max(0, int((unblock_time - current_time).total_seconds()))
+            }
+            for ip, unblock_time in rate_limiter.blocked_ips.items()
+            if current_time < unblock_time
+        ],
+        "rate_limits": rate_limiter.limits
+    }
+    
+    return detailed_stats
+
+# API 키 통합 관리 함수
+async def get_openai_key(header_key: Optional[str] = None) -> str:
+    """OpenAI API 키 조회 (헤더 또는 저장된 키)"""
+    # 1. 헤더에서 키가 제공된 경우 우선 사용
+    if header_key:
+        # 헤더 키를 임시로 저장 (사용자가 원할 경우)
+        return header_key
+    
+    # 2. 저장된 키 조회
+    stored_key = secure_api_manager.get_key_for_request('openai')
+    if stored_key:
+        return stored_key
+    
+    # 3. 키가 없으면 예외 발생
+    raise HTTPException(
+        status_code=401, 
+        detail="OpenAI API 키가 필요합니다. 헤더로 전달하거나 /api/secure/store-key 엔드포인트를 통해 저장해주세요."
+    )
+
+# API 키 보안 관리 엔드포인트들
+class APIKeyRequest(BaseModel):
+    service_name: str
+    api_key: str
+    metadata: dict = {}
+
+class APIKeyResponse(BaseModel):
+    success: bool
+    message: str
+    key_hash: str = None
+
+@app.post("/api/secure/store-key", response_model=APIKeyResponse)
+async def store_api_key_securely(request: APIKeyRequest):
+    """API 키를 안전하게 암호화하여 저장"""
+    try:
+        # API 키 형식 검증
+        if not crypto_manager.validate_api_key_format(request.api_key, request.service_name):
+            return APIKeyResponse(
+                success=False,
+                message=f"잘못된 {request.service_name} API 키 형식입니다."
+            )
+        
+        # 키 저장
+        success = secure_api_manager.store_key_from_header(
+            request.service_name, 
+            request.api_key, 
+            request.metadata.get('user_id')
+        )
+        
+        if success:
+            key_hash = crypto_manager.get_key_hash(request.api_key)
+            secure_api_manager.clear_cache(request.service_name)  # 캐시 클리어
+            
+            return APIKeyResponse(
+                success=True,
+                message=f"{request.service_name} API 키가 안전하게 저장되었습니다.",
+                key_hash=key_hash
+            )
+        else:
+            return APIKeyResponse(
+                success=False,
+                message="API 키 저장에 실패했습니다."
+            )
+            
+    except Exception as e:
+        return APIKeyResponse(
+            success=False,
+            message=f"오류 발생: {str(e)}"
+        )
+
+@app.get("/api/secure/list-keys")
+async def list_stored_keys():
+    """저장된 API 키 목록 조회 (메타데이터만)"""
+    try:
+        keys = crypto_manager.list_stored_keys()
+        return {
+            "success": True,
+            "keys": keys,
+            "count": len(keys)
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"키 목록 조회 실패: {str(e)}",
+            "keys": {},
+            "count": 0
+        }
+
+@app.delete("/api/secure/delete-key/{service_name}")
+async def delete_api_key(service_name: str):
+    """저장된 API 키 삭제"""
+    try:
+        success = crypto_manager.delete_api_key(service_name)
+        if success:
+            secure_api_manager.clear_cache(service_name)
+            return {
+                "success": True,
+                "message": f"{service_name} API 키가 삭제되었습니다."
+            }
+        else:
+            return {
+                "success": False,
+                "message": "API 키 삭제에 실패했습니다."
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"오류 발생: {str(e)}"
+        }
+
+@app.post("/api/secure/rotate-master-key")
+async def rotate_master_key(new_password: str):
+    """마스터 패스워드 변경 및 모든 키 재암호화"""
+    try:
+        success = crypto_manager.rotate_encryption_key(new_password)
+        if success:
+            secure_api_manager.clear_cache()  # 모든 캐시 클리어
+            return {
+                "success": True,
+                "message": "마스터 키가 성공적으로 변경되고 모든 API 키가 재암호화되었습니다."
+            }
+        else:
+            return {
+                "success": False,
+                "message": "마스터 키 변경에 실패했습니다."
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"오류 발생: {str(e)}"
+        }
+
+@app.get("/api/secure/test-key/{service_name}")
+async def test_stored_key(service_name: str):
+    """저장된 API 키 테스트"""
+    try:
+        api_key = secure_api_manager.get_key_for_request(service_name)
+        
+        if not api_key:
+            return {
+                "success": False,
+                "message": f"{service_name} API 키를 찾을 수 없습니다."
+            }
+        
+        # 간단한 형식 검증
+        is_valid_format = crypto_manager.validate_api_key_format(api_key, service_name)
+        key_hash = crypto_manager.get_key_hash(api_key)
+        
+        return {
+            "success": True,
+            "message": f"{service_name} API 키가 정상적으로 조회되었습니다.",
+            "key_hash": key_hash,
+            "valid_format": is_valid_format,
+            "key_length": len(api_key)
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"키 테스트 실패: {str(e)}"
+        }
+
+# 모니터링 엔드포인트
+@app.get("/metrics")
+async def get_metrics(request: Request):
+    """Prometheus 메트릭 엔드포인트"""
+    return await metrics_endpoint(request)
+
+@app.get("/health/detailed")
+async def get_health_detailed():
+    """상세 헬스체크 정보"""
+    return await health_check_detailed()
+
+@app.get("/api/monitoring/errors")
+async def get_error_summary():
+    """에러 요약 정보"""
+    return error_tracker.get_error_summary()
+
+# 성능 관련 엔드포인트
+@app.get("/api/performance/summary")
+async def get_performance_summary():
+    """성능 요약 정보"""
+    return performance_monitor.get_performance_summary()
+
+@app.get("/api/performance/cache")
+async def get_cache_status_endpoint():
+    """캐시 상태 정보"""
+    return await get_cache_status()
+
+@app.get("/api/performance/database")
+async def get_database_performance():
+    """데이터베이스 성능 정보"""
+    return {
+        "connection_pool": db_optimizer.get_connection_pool_status(),
+        "query_statistics": db_optimizer.get_query_statistics()
+    }
+
+@app.get("/api/performance/http-pool")
+async def get_http_pool_status():
+    """HTTP 연결 풀 상태"""
+    return http_pool.get_pool_status()
+
+@app.post("/api/performance/cache/clear")
+async def clear_cache(pattern: str = "*"):
+    """캐시 클리어 (관리자용)"""
+    count = await cache_manager.clear_pattern(pattern)
+    return {
+        "success": True,
+        "cleared_keys": count,
+        "pattern": pattern
+    }
+
+@app.on_event("startup")
+async def startup_event():
+    """애플리케이션 시작 이벤트"""
+    print(f"API 서버 시작됨... (OPENAI_API_KEY: {'설정됨' if os.environ.get('OPENAI_API_KEY') else '미설정'})")
+    
+    # 캐시 시스템 초기화
+    if CACHE_ENABLED:
+        try:
+            await cache_manager.initialize()
+            print("💾 캐싱 시스템 시작됨")
+            
+            # 캐시 예열 (선택적)
+            if os.environ.get("WARM_CACHE", "false").lower() == "true":
+                await warm_cache()
+                print("🔥 캐시 예열 완료")
+        except Exception as e:
+            print(f"⚠️ 캐싱 시스템 초기화 실패: {e}")
+    
+    if PERFORMANCE_ENABLED:
+        print("⚡ 성능 최적화 시스템 활성화됨")
+    
+    # 기타 모듈은 나중에 활성화
+    # monitoring.start_system_monitoring()
+    # await http_pool.initialize()
+    # if os.environ.get("DATABASE_URL"):
+    #     await db_optimizer.initialize_async_engine()
+
+# @app.on_event("shutdown")
+# async def shutdown_event():
+#     """애플리케이션 종료 이벤트"""
+#     # 시스템 모니터링 중지
+#     monitoring.stop_system_monitoring()
+#     
+#     # 오래된 에러 데이터 정리
+#     error_tracker.clear_old_data()
+#     
+#     # HTTP 연결 풀 종료
+#     await http_pool.close()
+#     
+#     # 캐시 연결 종료
+#     await cache_manager.l2_cache.disconnect()
+    
+    print("🛑 모니터링 시스템 종료됨")
+    print("💤 캐싱 시스템 종료됨")
+    print("🔌 성능 최적화 시스템 종료됨")
+
+# ========================================
+# 독립적인 이미지 생성 API 엔드포인트들
+# 기존 콘텐츠 생성 시스템과 완전 분리
+# ========================================
+
+class ImageGenerationRequest(BaseModel):
+    title: str = ""
+    keyword: str = ""
+    prompt: str = ""
+    size: str = "1024x1024"
+    quality: str = "standard"
+    style: str = "professional"
+
+class ImageGenerationResponse(BaseModel):
+    success: bool
+    image_url: str = ""
+    local_path: str = ""
+    revised_prompt: str = ""
+    error: str = ""
+
+@app.post("/api/images/generate")
+async def generate_image(
+    request: ImageGenerationRequest,
+    x_openai_key: Annotated[str | None, Header()] = None
+):
+    """독립적인 이미지 생성 API - 기존 시스템에 영향 없음"""
+    try:
+        if not x_openai_key:
+            raise HTTPException(status_code=401, detail="OpenAI API 키가 필요합니다")
+        
+        # 이미지 생성기에 API 키 설정
+        image_generator.set_api_key(x_openai_key)
+        
+        # 프롬프트 생성 또는 직접 사용
+        if request.prompt:
+            final_prompt = request.prompt
+        else:
+            final_prompt = image_generator.generate_image_prompt(
+                request.title, 
+                request.keyword, 
+                request.style
+            )
+        
+        # 이미지 생성
+        result = await image_generator.generate_image(
+            prompt=final_prompt,
+            size=request.size,
+            quality=request.quality
+        )
+        
+        if result["success"]:
+            return ImageGenerationResponse(
+                success=True,
+                image_url=result["image_url"],
+                local_path=result["local_path"],
+                revised_prompt=result["revised_prompt"]
+            )
+        else:
+            return ImageGenerationResponse(
+                success=False,
+                error=result["error"]
+            )
+            
+    except Exception as e:
+        return ImageGenerationResponse(
+            success=False,
+            error=f"이미지 생성 실패: {str(e)}"
+        )
+
+@app.get("/api/images/styles")
+async def get_image_styles():
+    """사용 가능한 이미지 스타일 목록"""
+    return {
+        "styles": [
+            {"id": "professional", "name": "전문적", "description": "깔끔하고 전문적인 스타일"},
+            {"id": "creative", "name": "창의적", "description": "예술적이고 창의적인 스타일"},
+            {"id": "minimalist", "name": "미니멀", "description": "단순하고 깔끔한 디자인"},
+            {"id": "infographic", "name": "인포그래픽", "description": "데이터 시각화 스타일"},
+            {"id": "illustration", "name": "일러스트", "description": "디지털 일러스트 스타일"}
+        ]
+    }
+
+# ========================================
+# 저장된 콘텐츠 관리 API 엔드포인트들
+# ========================================
+
+@app.get("/api/content/saved")
+async def get_saved_content(
+    query: str = "",
+    status: str = "",
+    limit: int = 50
+):
+    """저장된 콘텐츠 목록 조회"""
+    try:
+        content_list = content_storage.search_content(query, status, limit)
+        return {
+            "success": True,
+            "content": content_list,
+            "total": len(content_list)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"콘텐츠 조회 실패: {str(e)}")
+
+@app.get("/api/content/saved/{content_id}")
+async def get_saved_content_detail(content_id: str):
+    """특정 저장된 콘텐츠 상세 조회"""
+    try:
+        content = content_storage.get_content(content_id)
+        if not content:
+            raise HTTPException(status_code=404, detail="콘텐츠를 찾을 수 없습니다")
+        return {
+            "success": True,
+            "content": content
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"콘텐츠 조회 실패: {str(e)}")
+
+@app.put("/api/content/saved/{content_id}")
+async def update_saved_content(content_id: str, updates: dict):
+    """저장된 콘텐츠 수정"""
+    try:
+        success = content_storage.update_content(content_id, updates)
+        if not success:
+            raise HTTPException(status_code=404, detail="콘텐츠를 찾을 수 없습니다")
+        return {
+            "success": True,
+            "message": "콘텐츠가 업데이트되었습니다"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"콘텐츠 수정 실패: {str(e)}")
+
+@app.delete("/api/content/saved/{content_id}")
+async def delete_saved_content(content_id: str):
+    """저장된 콘텐츠 삭제"""
+    try:
+        success = content_storage.delete_content(content_id)
+        return {
+            "success": success,
+            "message": "콘텐츠가 삭제되었습니다" if success else "콘텐츠 삭제 실패"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"콘텐츠 삭제 실패: {str(e)}")
+
+@app.get("/api/content/stats")
+async def get_content_stats():
+    """저장된 콘텐츠 통계"""
+    try:
+        stats = content_storage.get_stats()
+        return {
+            "success": True,
+            "stats": stats
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"통계 조회 실패: {str(e)}")
+
+# AI 제공자 관련 엔드포인트
+@app.get("/api/ai/providers")
+async def get_ai_providers():
+    """사용 가능한 AI 제공자 목록"""
+    try:
+        info = multi_ai_provider.get_provider_info()
+        return {
+            "success": True,
+            "data": info
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/ai/config")
+async def update_ai_config(request: dict):
+    """AI 제공자 설정 업데이트"""
+    try:
+        api_keys = request.get("api_keys", {})
+        mode = request.get("mode", "free_first")
+        
+        # 설정 저장
+        multi_ai_provider.save_config(api_keys, mode)
+        
+        return {
+            "success": True,
+            "message": "AI 제공자 설정이 업데이트되었습니다."
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/api/ai/generate")
+async def generate_with_ai(request: dict):
+    """다중 AI 제공자를 통한 콘텐츠 생성"""
+    try:
+        prompt = request.get("prompt", "")
+        provider = request.get("provider", None)  # 특정 제공자 지정 (선택사항)
+        
+        if not prompt:
+            raise HTTPException(status_code=400, detail="프롬프트가 필요합니다.")
+        
+        # AI 생성
+        result = await multi_ai_provider.generate_content(prompt, provider)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "content": result["content"],
+                "provider": result["provider"],
+                "is_free": result.get("is_free", False)
+            }
+        else:
+            return {
+                "success": False,
+                "error": result["error"],
+                "details": result.get("details", [])
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# SNS 라우터 등록
+app.include_router(sns_router)
+# 언어 라우터 등록
+app.include_router(language_router)
+# A/B 테스팅 라우터 등록
+app.include_router(testing_router)
+
 if __name__ == "__main__":
     print("🚀 실제 API 서버 시작 (간소화 버전)...")
     print("✅ API 키는 헤더를 통해 전달받습니다")
     print("🔥 지침 기반 OpenAI 콘텐츠 생성 활성화")
+    print("🎨 독립적인 이미지 생성 시스템 활성화")
+    print("💾 콘텐츠 자동 저장 시스템 활성화")
+    print("🤖 다중 AI 제공자 시스템 활성화 (Gemini, Groq, DeepSeek, HuggingFace, OpenRouter, Grok)")
     uvicorn.run(app, host="0.0.0.0", port=8000)

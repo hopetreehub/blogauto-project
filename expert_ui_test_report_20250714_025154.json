@@ -1,0 +1,78 @@
+{
+  "timestamp": "2025-07-14T02:51:39.546302",
+  "frontend_url": "http://localhost:4007",
+  "backend_url": "http://localhost:8000",
+  "tests": {
+    "page_홈페이지": {
+      "status": "error",
+      "error": "[Errno 2] No such file or directory: 'chromium-browser'",
+      "timestamp": "2025-07-14T02:51:39.678507"
+    },
+    "page_콘텐츠 생성": {
+      "status": "error",
+      "error": "[Errno 2] No such file or directory: 'chromium-browser'",
+      "timestamp": "2025-07-14T02:51:41.803853"
+    },
+    "page_제목 생성": {
+      "status": "error",
+      "error": "[Errno 2] No such file or directory: 'chromium-browser'",
+      "timestamp": "2025-07-14T02:51:43.932755"
+    },
+    "page_키워드 분석": {
+      "status": "error",
+      "error": "[Errno 2] No such file or directory: 'chromium-browser'",
+      "timestamp": "2025-07-14T02:51:46.031931"
+    },
+    "page_이미지 생성": {
+      "status": "error",
+      "error": "[Errno 2] No such file or directory: 'chromium-browser'",
+      "timestamp": "2025-07-14T02:51:48.165118"
+    },
+    "page_설정": {
+      "status": "error",
+      "error": "[Errno 2] No such file or directory: 'chromium-browser'",
+      "timestamp": "2025-07-14T02:51:50.310187"
+    },
+    "page_WordPress": {
+      "status": "error",
+      "error": "[Errno 2] No such file or directory: 'chromium-browser'",
+      "timestamp": "2025-07-14T02:51:52.453149"
+    },
+    "api_Health Check": {
+      "status_code": 200,
+      "response_time": 0.002734,
+      "has_response": true,
+      "timestamp": "2025-07-14T02:51:54.216986"
+    },
+    "api_API 정보": {
+      "status_code": 404,
+      "response_time": 0.001643,
+      "has_response": true,
+      "timestamp": "2025-07-14T02:51:54.219355"
+    },
+    "api_키워드 분석": {
+      "status_code": 401,
+      "response_time": 0.002976,
+      "has_response": true,
+      "timestamp": "2025-07-14T02:51:54.223037"
+    },
+    "api_제목 생성": {
+      "status_code": 401,
+      "response_time": 0.00342,
+      "has_response": true,
+      "timestamp": "2025-07-14T02:51:54.227242"
+    },
+    "api_콘텐츠 생성": {
+      "status_code": 401,
+      "response_time": 0.002991,
+      "has_response": true,
+      "timestamp": "2025-07-14T02:51:54.230927"
+    }
+  },
+  "issues": [],
+  "recommendations": [
+    "♿ 접근성 강화: ARIA 라벨, 키보드 네비게이션, 대체 텍스트 추가",
+    "🛡️ 보안 강화: API 키 검증, 입력값 sanitization, HTTPS 적용",
+    "👤 UX 개선: 로딩 상태 표시, 에러 메시지 개선, 진행률 표시"
+  ]
+}

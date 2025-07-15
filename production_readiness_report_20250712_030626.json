@@ -1,0 +1,192 @@
+{
+  "check_info": {
+    "timestamp": "2025-07-12T03:06:24.862034",
+    "checker_version": "1.0.0",
+    "check_type": "production_readiness",
+    "duration": 1.5784673690795898
+  },
+  "results": {
+    "api_functionality": {
+      "server_root": {
+        "status": 200,
+        "working": true,
+        "response_time": 0,
+        "has_proper_response": true
+      },
+      "health_check": {
+        "status": 200,
+        "working": true,
+        "response_time": 0.0027964115142822266,
+        "has_status": true,
+        "has_timestamp": true,
+        "fast_response": true
+      },
+      "keyword_analysis": {
+        "status": 200,
+        "working": true,
+        "response_time": 0.027397632598876953,
+        "has_keyword": true,
+        "has_search_volume": true,
+        "has_competition": true,
+        "has_related_keywords": true,
+        "data_structure_valid": true
+      },
+      "title_generation": {
+        "status": 200,
+        "working": true,
+        "response_time": 0.003985166549682617,
+        "has_titles": true,
+        "titles_have_scores": true,
+        "proper_title_count": true
+      },
+      "content_generation": {
+        "status": 200,
+        "working": true,
+        "response_time": 0.0022072792053222656,
+        "has_content": true,
+        "has_seo_score": true,
+        "has_word_count": true,
+        "content_not_empty": false
+      }
+    },
+    "api_documentation": {
+      "swagger_ui": {
+        "status": 200,
+        "accessible": true,
+        "content_type": "text/html; charset=utf-8",
+        "has_swagger_content": true
+      },
+      "openapi_schema": {
+        "status": 200,
+        "accessible": true,
+        "has_info": true,
+        "has_paths": true,
+        "has_components": true,
+        "valid_openapi": true
+      }
+    },
+    "performance": {
+      "response_times": {
+        "average": 0.0012494325637817383,
+        "max": 0.0014781951904296875,
+        "min": 0.0011374950408935547,
+        "samples": 10,
+        "meets_sla": true,
+        "consistent": true
+      },
+      "concurrent_handling": {
+        "total_requests": 5,
+        "successful_requests": 5,
+        "success_rate": 1.0,
+        "total_time": 0.004027366638183594,
+        "handles_concurrent": true
+      }
+    },
+    "file_structure": {
+      "essential_files": {
+        "README.md": {
+          "exists": true,
+          "path": "/mnt/e/project/test-blogauto-project/README.md",
+          "size": 8380,
+          "not_empty": true
+        },
+        ".env.example": {
+          "exists": true,
+          "path": "/mnt/e/project/test-blogauto-project/.env.example",
+          "size": 3061,
+          "not_empty": true
+        },
+        "requirements.txt": {
+          "exists": true,
+          "path": "/mnt/e/project/test-blogauto-project/backend/requirements.txt",
+          "size": 461,
+          "not_empty": true
+        },
+        "docker-compose.yml": {
+          "exists": true,
+          "path": "/mnt/e/project/test-blogauto-project/docker-compose.yml",
+          "size": 981,
+          "not_empty": true
+        },
+        "API 문서": {
+          "exists": true,
+          "path": "/mnt/e/project/test-blogauto-project/docs/api-docs.md",
+          "size": 14414,
+          "not_empty": true
+        },
+        "배포 가이드": {
+          "exists": true,
+          "path": "/mnt/e/project/test-blogauto-project/docs/deployment-guide.md",
+          "size": 16712,
+          "not_empty": true
+        },
+        "보안 가이드": {
+          "exists": true,
+          "path": "/mnt/e/project/test-blogauto-project/docs/security-guide.md",
+          "size": 32316,
+          "not_empty": true
+        }
+      },
+      "missing_files": [],
+      "env_template": {
+        "exists": true,
+        "required_vars": {
+          "OPENAI_API_KEY": true,
+          "DATABASE_URL": true,
+          "SECRET_KEY": true,
+          "MASTER_PASSWORD": true,
+          "REDIS_HOST": true
+        },
+        "all_vars_present": true
+      },
+      "documentation": {
+        "docs_count": 8,
+        "has_multiple_docs": true,
+        "doc_files": [
+          "api-docs.md",
+          "api-documentation.md",
+          "ci-cd-guide.md",
+          "deployment-guide.md",
+          "monitoring-guide.md",
+          "performance-guide.md",
+          "security-guide.md",
+          "setup-guide.md"
+        ]
+      }
+    },
+    "security": {
+      "security_files": {
+        "env_file_not_in_git": true,
+        "example_file_exists": true,
+        "gitignore_exists": true,
+        "env_in_gitignore": true,
+        "logs_ignored": true,
+        "cache_ignored": true
+      },
+      "security_score": 100.0
+    }
+  },
+  "summary": {
+    "overall_readiness": "production_ready",
+    "readiness_score": 100.0,
+    "critical_systems_ready": 5,
+    "total_critical_systems": 5,
+    "issues_summary": {
+      "critical": 0,
+      "warnings": 0,
+      "total": 0
+    },
+    "recommendations": [
+      "✅ 프로덕션 배포 준비 완료!"
+    ],
+    "deployment_blockers": [],
+    "improvement_suggestions": [],
+    "system_scores": {
+      "api_functionality": 100.0,
+      "documentation": 100,
+      "performance": 100,
+      "file_structure": 100,
+      "security": 100.0
+    }
+  }
+}

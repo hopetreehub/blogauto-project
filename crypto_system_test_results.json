@@ -1,0 +1,99 @@
+{
+  "storage_tests": {
+    "passed": 4,
+    "failed": 0,
+    "details": [
+      {
+        "test": "Valid OpenAI Key",
+        "expected": true,
+        "actual": true,
+        "passed": true,
+        "response": "openai API 키가 안전하게 저장되었습니다.",
+        "key_hash": "297c94582303c9de"
+      },
+      {
+        "test": "Valid Google Key",
+        "expected": true,
+        "actual": true,
+        "passed": true,
+        "response": "google API 키가 안전하게 저장되었습니다.",
+        "key_hash": "809a6d3305b851c2"
+      },
+      {
+        "test": "Invalid OpenAI Key (wrong prefix)",
+        "expected": false,
+        "actual": false,
+        "passed": true,
+        "response": "잘못된 openai API 키 형식입니다.",
+        "key_hash": null
+      },
+      {
+        "test": "Short Key",
+        "expected": false,
+        "actual": false,
+        "passed": true,
+        "response": "잘못된 openai API 키 형식입니다.",
+        "key_hash": null
+      }
+    ]
+  },
+  "retrieval_tests": {
+    "total_keys": 2,
+    "test_results": [
+      {
+        "service": "openai",
+        "status": 200,
+        "success": true,
+        "valid_format": true,
+        "key_length": 43,
+        "key_hash": "297c94582303c9de",
+        "message": "openai API 키가 정상적으로 조회되었습니다."
+      },
+      {
+        "service": "google",
+        "status": 200,
+        "success": true,
+        "valid_format": true,
+        "key_length": 36,
+        "key_hash": "809a6d3305b851c2",
+        "message": "google API 키가 정상적으로 조회되었습니다."
+      }
+    ]
+  },
+  "integration_tests": {
+    "no_header_test": {
+      "status": 200,
+      "success": true,
+      "response_type": "list",
+      "has_data": true
+    },
+    "with_header_test": {
+      "status": 200,
+      "success": true,
+      "response_type": "list",
+      "has_data": true
+    }
+  },
+  "management_tests": {
+    "store_test": {
+      "status": 200,
+      "success": true
+    },
+    "delete_test": {
+      "status": 200,
+      "success": true,
+      "message": "test_service API 키가 삭제되었습니다."
+    },
+    "deleted_key_access": {
+      "status": 200,
+      "should_fail": true,
+      "message": "test_service API 키를 찾을 수 없습니다."
+    }
+  },
+  "security_tests": {
+    "encrypted_file_exists": true,
+    "keys_count": 2,
+    "has_encrypted_keys": true,
+    "no_plain_text_keys": true
+  }
+}

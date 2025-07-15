@@ -1,0 +1,98 @@
+{
+  "test_info": {
+    "timestamp": "2025-07-12T01:59:21.350957",
+    "test_type": "final_integration",
+    "version": "1.0.0",
+    "duration": 2.72631573677063
+  },
+  "test_results": {
+    "core_api": {
+      "keyword_analysis": {
+        "status_code": 200,
+        "response_time": 0.005473613739013672,
+        "success": true,
+        "data_parse_error": "'list' object has no attribute 'get'"
+      },
+      "title_generation": {
+        "status_code": 401,
+        "response_time": 0.0018153190612792969,
+        "success": false
+      },
+      "content_generation": {
+        "status_code": 401,
+        "response_time": 0.0030975341796875,
+        "success": false
+      }
+    },
+    "system_endpoints": {
+      "health_check": {
+        "status_code": 404,
+        "accessible": false
+      },
+      "api_docs": {
+        "status_code": 200,
+        "accessible": true
+      },
+      "openapi_schema": {
+        "status_code": 200,
+        "accessible": true,
+        "has_paths": true
+      }
+    },
+    "error_handling": {
+      "invalid_request": {
+        "status_code": 422,
+        "proper_error_response": true,
+        "error_details": {
+          "detail": [
+            {
+              "type": "missing",
+              "loc": [
+                "body",
+                "keyword"
+              ],
+              "msg": "Field required",
+              "input": {
+                "invalid": "data"
+              }
+            }
+          ]
+        }
+      },
+      "nonexistent_endpoint": {
+        "status_code": 404,
+        "proper_404_response": true
+      }
+    },
+    "performance": {
+      "response_times": {
+        "average": 0.0015552997589111327,
+        "min": 0.0014340877532958984,
+        "max": 0.001911163330078125,
+        "count": 5,
+        "all_under_2s": true
+      }
+    },
+    "data_consistency": {
+      "consistency_test": {
+        "error": "'list' object has no attribute 'get'"
+      }
+    }
+  },
+  "summary": {
+    "total_test_categories": 5,
+    "successful_categories": 3,
+    "critical_functions_working": 1,
+    "total_critical_functions": 3,
+    "issues_found": [
+      "title_generation 기능 실패",
+      "content_generation 기능 실패"
+    ],
+    "recommendations": [
+      "기본 기능은 작동하지만 개선이 필요합니다."
+    ],
+    "success_rate": 60.0,
+    "critical_success_rate": 33.33333333333333,
+    "overall_status": "fair"
+  }
+}

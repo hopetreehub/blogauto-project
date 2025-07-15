@@ -1,0 +1,37 @@
+{
+  "timestamp": "2025-07-11T22:36:31.985583",
+  "tests": [
+    {
+      "name": "API Health Check",
+      "avg_response_time_ms": 2.32,
+      "min_time_ms": 2.04,
+      "max_time_ms": 3.05,
+      "status": "✅ 정상"
+    },
+    {
+      "name": "Database Performance",
+      "avg_query_time_ms": 0.54,
+      "index_count": 22,
+      "status": "✅ 최적화됨"
+    },
+    {
+      "name": "Memory Usage",
+      "usage_percent": 83.5,
+      "status": "✅ 정상"
+    },
+    {
+      "name": "WordPress Connection",
+      "response_time_ms": 452.08,
+      "status_code": 200,
+      "status": "✅ 연결 가능"
+    }
+  ],
+  "optimizations": {
+    "implemented": [
+      "캐싱 전략",
+      "데이터베이스 최적화",
+      "API 최적화"
+    ],
+    "count": 3
+  }
+}

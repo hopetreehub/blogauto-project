@@ -1,0 +1,162 @@
+{
+  "basic": {
+    "health_check": true,
+    "rate_limit_stats": true,
+    "initial_stats": {
+      "active_ips": 1,
+      "active_users": 0,
+      "blocked_ips": 0,
+      "total_endpoint_requests": 10,
+      "suspicious_ips": 1,
+      "current_time": "2025-07-12T00:43:08.916995",
+      "blocked_ips_details": [],
+      "rate_limits": {
+        "default": {
+          "requests": 60,
+          "window": 60
+        },
+        "ip": {
+          "requests": 100,
+          "window": 60
+        },
+        "user": {
+          "requests": 1000,
+          "window": 60
+        },
+        "endpoints": {
+          "/api/keywords/analyze": {
+            "requests": 10,
+            "window": 60
+          },
+          "/api/titles/generate": {
+            "requests": 20,
+            "window": 60
+          },
+          "/api/content/generate": {
+            "requests": 5,
+            "window": 60
+          },
+          "/api/content/batch-generate": {
+            "requests": 2,
+            "window": 300
+          },
+          "/api/auth/login": {
+            "requests": 5,
+            "window": 300
+          },
+          "/api/auth/register": {
+            "requests": 3,
+            "window": 3600
+          }
+        }
+      }
+    }
+  },
+  "endpoint_limiting": {
+    "total_requests": 13,
+    "successful_before_limit": 10,
+    "rate_limited_count": 3,
+    "limit_triggered_correctly": true,
+    "first_rate_limit_at": 11,
+    "details": [
+      {
+        "request_num": 9,
+        "status": 401,
+        "limited": false,
+        "response": "OpenAI API 키가 필요합니다. 설정 페이지에서 API 키를 입력해주세요."
+      },
+      {
+        "request_num": 10,
+        "status": 401,
+        "limited": false,
+        "response": "OpenAI API 키가 필요합니다. 설정 페이지에서 API 키를 입력해주세요."
+      },
+      {
+        "request_num": 11,
+        "status": 429,
+        "limited": true,
+        "response": "Rate limit exceeded for /api/keywords/analyze"
+      },
+      {
+        "request_num": 12,
+        "status": 429,
+        "limited": true,
+        "response": "Rate limit exceeded for /api/keywords/analyze"
+      },
+      {
+        "request_num": 13,
+        "status": 429,
+        "limited": true,
+        "response": "Rate limit exceeded for /api/keywords/analyze"
+      }
+    ]
+  },
+  "ip_limiting": {
+    "total_requests": 30,
+    "successful_requests": 30,
+    "current_active_ips": 1,
+    "ip_limit_reached": false,
+    "final_stats": {
+      "active_ips": 1,
+      "active_users": 0,
+      "blocked_ips": 0,
+      "total_endpoint_requests": 10,
+      "suspicious_ips": 1,
+      "current_time": "2025-07-12T00:43:10.576331",
+      "blocked_ips_details": [],
+      "rate_limits": {
+        "default": {
+          "requests": 60,
+          "window": 60
+        },
+        "ip": {
+          "requests": 100,
+          "window": 60
+        },
+        "user": {
+          "requests": 1000,
+          "window": 60
+        },
+        "endpoints": {
+          "/api/keywords/analyze": {
+            "requests": 10,
+            "window": 60
+          },
+          "/api/titles/generate": {
+            "requests": 20,
+            "window": 60
+          },
+          "/api/content/generate": {
+            "requests": 5,
+            "window": 60
+          },
+          "/api/content/batch-generate": {
+            "requests": 2,
+            "window": 300
+          },
+          "/api/auth/login": {
+            "requests": 5,
+            "window": 300
+          },
+          "/api/auth/register": {
+            "requests": 3,
+            "window": 3600
+          }
+        }
+      }
+    }
+  },
+  "suspicious_detection": {
+    "total_requests": 20,
+    "elapsed_time": 1.53,
+    "requests_per_second": 13.08,
+    "blocked_requests": 16,
+    "suspicious_detected": true,
+    "first_block_at": 5
+  },
+  "headers": {
+    "has_rate_limit_headers": false,
+    "headers": {},
+    "response_status": 429
+  }
+}

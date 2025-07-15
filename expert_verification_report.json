@@ -1,0 +1,94 @@
+{
+  "timestamp": "2025-07-12T02:28:39.714329",
+  "test_type": "expert_sequential_verification",
+  "api_tests": {
+    "root": {
+      "url": "http://localhost:8000/",
+      "status_code": 200,
+      "response_time": 0.005746364593505859,
+      "success": true,
+      "content_length": 70
+    },
+    "health_check": {
+      "url": "http://localhost:8000/health",
+      "status_code": 200,
+      "response_time": 0.002991914749145508,
+      "success": true,
+      "content_length": 101
+    },
+    "api_docs": {
+      "url": "http://localhost:8000/docs",
+      "status_code": 200,
+      "response_time": 0.0057451725006103516,
+      "success": true,
+      "content_length": 941
+    },
+    "openapi_schema": {
+      "url": "http://localhost:8000/openapi.json",
+      "status_code": 200,
+      "response_time": 0.006595611572265625,
+      "success": true,
+      "content_length": 3533
+    },
+    "keyword_analysis": {
+      "status_code": 200,
+      "response_time": 0.0304718017578125,
+      "success": true,
+      "data_valid": true,
+      "response_structure": [
+        "keyword",
+        "search_volume",
+        "competition",
+        "cpc",
+        "opportunity_score",
+        "related_keywords"
+      ]
+    },
+    "title_generation": {
+      "status_code": 200,
+      "response_time": 0.004711151123046875,
+      "success": true,
+      "titles_count": 3,
+      "response_structure": [
+        "titles"
+      ]
+    },
+    "content_generation": {
+      "status_code": 200,
+      "response_time": 0.0029637813568115234,
+      "success": true,
+      "content_length": 130,
+      "has_seo_score": true,
+      "response_structure": [
+        "content",
+        "seo_score",
+        "word_count",
+        "readability_score",
+        "meta_description",
+        "tags"
+      ]
+    }
+  },
+  "performance_tests": {
+    "response_times": {
+      "average": 0.002440643310546875,
+      "max": 0.0036356449127197266,
+      "min": 0.0017430782318115234,
+      "samples": 5,
+      "meets_sla": true,
+      "consistent": true
+    }
+  },
+  "security_tests": {},
+  "issues": [],
+  "recommendations": [
+    "✅ 프로덕션 배포 준비 완료"
+  ],
+  "summary": {
+    "overall_status": "PRODUCTION_READY",
+    "success_rate": 100.0,
+    "total_tests": 7,
+    "successful_tests": 7,
+    "issues_count": 0
+  }
+}

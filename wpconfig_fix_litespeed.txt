@@ -1,0 +1,25 @@
+
+// WordPress REST API Authorization 수정 (wp-config.php에 추가)
+// 이 코드를 wp-config.php 파일의 "/* That's all, stop editing!" 라인 위에 추가하세요
+
+// HTTP_AUTHORIZATION 헤더 강제 설정
+if (!isset($_SERVER['HTTP_AUTHORIZATION'])) {
+    if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+    } elseif (isset($_SERVER['PHP_AUTH_USER'])) {
+        $basic_pass = isset($_SERVER['PHP_AUTH_PW']) ? $_SERVER['PHP_AUTH_PW'] : '';
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Basic ' . base64_encode($_SERVER['PHP_AUTH_USER'] . ':' . $basic_pass);
+    } elseif (isset($_SERVER['PHP_AUTH_DIGEST'])) {
+        $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['PHP_AUTH_DIGEST'];
+    }
+}
+
+// Application Password 기능 강제 활성화
+if (!defined('WP_APPLICATION_PASSWORDS')) {
+    define('WP_APPLICATION_PASSWORDS', true);
+}
+
+// REST API 디버깅 활성화 (선택사항)
+if (!defined('WP_DEBUG_LOG')) {
+    define('WP_DEBUG_LOG', true);
+}

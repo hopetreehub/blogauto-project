@@ -1,11 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/useToast';
 import ToastContainer from '@/components/ToastContainer';
 import { apiCall } from '@/utils/api';
 import { useRouter } from 'next/navigation';
 import GuidelinesModal from '@/components/GuidelinesModal';
+import { useWorkflow } from '@/contexts/WorkflowContext';
+import { useAutoSave, useBeforeUnload } from '@/hooks/useAutoSave';
+import { AutoSaveStatus } from '@/components/AutoSaveStatus';
+import WorkflowStepper from '@/components/WorkflowStepper';
+import { PencilIcon, ClipboardIcon, SearchIcon, CopyIcon } from '@/components/Icons';
+import { AccessibleButton } from '@/components/AccessibleButton';
 
 interface TitleResult {
   title: string;
@@ -26,6 +32,55 @@ export default function TitlesPage() {
   const [showGuidelines, setShowGuidelines] = useState(false);
   const { toasts, success, error: toastError, removeToast } = useToast();
   const router = useRouter();
+  
+  // 워크플로우 상태 관리
+  const { state: workflowState, actions: workflowActions } = useWorkflow();
+  
+  // 자동저장 설정
+  const autoSaveData = {
+    keyword,
+    length,
+    language,
+    tone,
+    count,
+    results,
+    timestamp: Date.now()
+  };
+  
+  const {
+    saveNow,
+    hasUnsavedChanges,
+    lastSaved,
+    restoreData
+  } = useAutoSave(autoSaveData, {
+    key: 'titles_page',
+    interval: 30000, // 30초마다 저장
+    enabled: true
+  });
+  
+  // 페이지 이탈 경고
+  useBeforeUnload(hasUnsavedChanges);
+
+  // 페이지 로드 시 워크플로우 설정 및 데이터 복원
+  useEffect(() => {
+    workflowActions.setStep('title');
+    
+    // 워크플로우에서 선택된 키워드 사용
+    if (workflowState.selectedKeyword) {
+      setKeyword(workflowState.selectedKeyword);
+    }
+    
+    // 저장된 데이터 복원
+    const saved = restoreData();
+    if (saved?.data) {
+      setKeyword(saved.data.keyword || workflowState.selectedKeyword || '');
+      setLength(saved.data.length || 'medium');
+      setLanguage(saved.data.language || 'ko');
+      setTone(saved.data.tone || 'professional');
+      setCount(saved.data.count || 5);
+      setResults(saved.data.results || []);
+    }
+  }, []);
 
   const generateTitles = async () => {
     if (!keyword.trim()) {
@@ -76,6 +131,7 @@ export default function TitlesPage() {
 
       const data = await response.json();
       setResults(data);
+      workflowActions.setTitles(data.map((item: TitleResult) => item.title));
       success(`${data.length}개의 제목이 성공적으로 생성되었습니다.`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
@@ -101,23 +157,48 @@ export default function TitlesPage() {
     }
   };
 
+  // 제목 선택 및 다음 단계로 이동
+  const selectTitle = (selectedTitle: string) => {
+    workflowActions.setTitle(selectedTitle);
+    success(`"${selectedTitle}" 제목이 선택되었습니다.`);
+    router.push('/content');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 p-8">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* 워크플로우 스테퍼 */}
+        <WorkflowStepper className="mb-6" />
+        
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">제목 생성</h1>
               <p className="text-gray-600 mt-2">AI가 SEO 최적화된 매력적인 제목을 생성해드립니다</p>
+              {workflowState.selectedKeyword && (
+                <div className="mt-2 flex items-center text-sm text-blue-600">
+                  <SearchIcon className="mr-2" size={16} />
+                  선택된 키워드: <span className="font-medium ml-1">{workflowState.selectedKeyword}</span>
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => setShowGuidelines(true)}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 flex items-center"
-            >
-              <span className="mr-2">📋</span>
-              제목 지침 보기
-            </button>
+            <div className="flex items-center gap-4">
+              {/* 자동저장 상태 */}
+              <AutoSaveStatus 
+                hasUnsavedChanges={hasUnsavedChanges}
+                lastSaved={lastSaved}
+                onSaveNow={saveNow}
+              />
+              <AccessibleButton
+                onClick={() => setShowGuidelines(true)}
+                variant="secondary"
+                icon={<ClipboardIcon size={16} />}
+                ariaLabel="제목 작성 지침 보기"
+              >
+                제목 지침 보기
+              </AccessibleButton>
+            </div>
           </div>
         </div>
 
@@ -198,19 +279,16 @@ export default function TitlesPage() {
             </div>
           </div>
 
-          <button
+          <AccessibleButton
             onClick={generateTitles}
             disabled={loading}
-            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            loading={loading}
+            icon={<PencilIcon size={18} />}
+            ariaLabel="AI 제목 생성 시작"
+            size="lg"
           >
-            {loading && (
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            )}
-            {loading ? '생성 중...' : '제목 생성'}
-          </button>
+            제목 생성
+          </AccessibleButton>
 
           {error && !loading && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -226,12 +304,15 @@ export default function TitlesPage() {
                     {error}
                   </div>
                   <div className="mt-3">
-                    <button
+                    <AccessibleButton
                       onClick={() => setError('')}
-                      className="bg-red-100 text-red-800 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-red-200 transition-colors"
+                      variant="ghost"
+                      size="sm"
+                      ariaLabel="오류 메시지 닫기"
+                      className="bg-red-100 text-red-800 hover:bg-red-200"
                     >
                       닫기
-                    </button>
+                    </AccessibleButton>
                   </div>
                 </div>
               </div>
@@ -274,11 +355,28 @@ export default function TitlesPage() {
                           )}
                         </div>
                       </div>
-                      <button className="ml-4 p-2 hover:bg-gray-100 rounded">
-                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
+                      <div className="ml-4 flex items-center gap-2">
+                        <AccessibleButton 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(result.title);
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          icon={<CopyIcon size={16} />}
+                          ariaLabel={`"${result.title}" 제목 복사`}
+                        />
+                        <AccessibleButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectTitle(result.title);
+                          }}
+                          size="sm"
+                          ariaLabel={`"${result.title}" 제목을 선택하여 다음 단계로 이동`}
+                        >
+                          선택
+                        </AccessibleButton>
+                      </div>
                     </div>
                   </div>
                 ))}

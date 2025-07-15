@@ -1,0 +1,72 @@
+# Staging Environment Configuration
+name: staging
+url: https://staging.blogauto.com
+
+# Environment protection rules
+protection_rules:
+  required_reviewers: 1
+  prevent_self_review: false
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+    custom_branches:
+      - "develop"
+      - "release/*"
+
+# Environment variables
+environment_variables:
+  NODE_ENV: "staging"
+  API_BASE_URL: "https://api-staging.blogauto.com"
+  FRONTEND_URL: "https://staging.blogauto.com"
+  BACKEND_URL: "https://api-staging.blogauto.com"
+  
+  # Database
+  DATABASE_TYPE: "postgresql"
+  DATABASE_HOST: "staging-db.blogauto.com"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "blogauto_staging"
+  
+  # Redis
+  REDIS_HOST: "staging-redis.blogauto.com"
+  REDIS_PORT: "6379"
+  
+  # Monitoring
+  SENTRY_ENVIRONMENT: "staging"
+  LOG_LEVEL: "debug"
+  
+  # Rate Limiting
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_WINDOW: "60"
+  RATE_LIMIT_MAX_REQUESTS: "100"
+
+# Secrets (configured in GitHub repository settings)
+required_secrets:
+  - DATABASE_PASSWORD
+  - REDIS_PASSWORD
+  - MASTER_PASSWORD
+  - SENTRY_DSN
+  - OPENAI_API_KEY_DEFAULT
+  - JWT_SECRET
+  - SMTP_PASSWORD
+
+# Deployment configuration
+deployment:
+  strategy: "rolling"
+  replicas: 2
+  resources:
+    backend:
+      cpu: "500m"
+      memory: "1Gi"
+    frontend:
+      cpu: "250m"
+      memory: "512Mi"
+  
+  health_check:
+    enabled: true
+    path: "/api/health"
+    initial_delay: 30
+    timeout: 10
+    
+  monitoring:
+    enabled: true
+    metrics_endpoint: "/metrics"

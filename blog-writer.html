@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlogAuto - AI 블로그 작성 도구</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .step {
+            margin-bottom: 40px;
+            padding: 30px;
+            border: 2px solid #f0f0f0;
+            border-radius: 15px;
+            background: #fafafa;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            border-color: #4facfe;
+            background: #f8fbff;
+            box-shadow: 0 10px 30px rgba(79, 172, 254, 0.1);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-right: 15px;
+        }
+
+        .step-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 1.1em;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            color: #4facfe;
+            font-weight: 600;
+        }
+
+        .loading.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e0e0e0;
+            border-top: 2px solid #4facfe;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .keyword-analysis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .metric {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4facfe;
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .title-option {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .title-option:hover {
+            border-color: #4facfe;
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.1);
+        }
+
+        .title-option.selected {
+            border-color: #4facfe;
+            background: #f8fbff;
+        }
+
+        .title-text {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .title-score {
+            color: #4facfe;
+            font-weight: bold;
+        }
+
+        .content-preview {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .content-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 1px solid #f5c6cb;
+        }
+
+        .related-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .keyword-tag {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .step {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 BlogAuto</h1>
+            <p>AI 기반 블로그 자동 작성 도구</p>
+        </div>
+
+        <div class="content">
+            <!-- Step 1: 키워드 분석 -->
+            <div class="step active" id="step1">
+                <div class="step-header">
+                    <div class="step-number">1</div>
+                    <div class="step-title">키워드 분석</div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="keyword">주제 키워드</label>
+                    <input type="text" id="keyword" placeholder="예: 건강한 식단, 면역력 높이기, 투자 방법" />
+                </div>
+                
+                <div class="input-group">
+                    <label for="country">국가</label>
+                    <select id="country">
+                        <option value="KR">한국</option>
+                        <option value="US">미국</option>
+                        <option value="JP">일본</option>
+                    </select>
+                </div>
+                
+                <button class="btn" onclick="analyzeKeyword()">키워드 분석하기</button>
+                <div class="loading" id="loading1">
+                    <div class="spinner"></div>
+                    키워드를 분석하고 있습니다...
+                </div>
+                
+                <div id="keyword-results" class="results" style="display: none;"></div>
+            </div>
+
+            <!-- Step 2: 제목 생성 -->
+            <div class="step" id="step2">
+                <div class="step-header">
+                    <div class="step-number">2</div>
+                    <div class="step-title">SEO 최적화 제목 생성</div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="title-count">생성할 제목 개수</label>
+                    <select id="title-count">
+                        <option value="3">3개</option>
+                        <option value="5" selected>5개</option>
+                        <option value="7">7개</option>
+                        <option value="10">10개</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="tone">글의 톤</label>
+                    <select id="tone">
+                        <option value="professional">전문적</option>
+                        <option value="friendly">친근한</option>
+                        <option value="formal">공식적</option>
+                        <option value="casual">캐주얼</option>
+                    </select>
+                </div>
+                
+                <button class="btn" onclick="generateTitles()" disabled id="generate-titles-btn">제목 생성하기</button>
+                <div class="loading" id="loading2">
+                    <div class="spinner"></div>
+                    SEO 최적화 제목을 생성하고 있습니다...
+                </div>
+                
+                <div id="title-results" class="results" style="display: none;"></div>
+            </div>
+
+            <!-- Step 3: 콘텐츠 생성 -->
+            <div class="step" id="step3">
+                <div class="step-header">
+                    <div class="step-number">3</div>
+                    <div class="step-title">고품질 콘텐츠 생성</div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="content-length">글 길이</label>
+                    <select id="content-length">
+                        <option value="short">짧음 (800-1200자)</option>
+                        <option value="medium" selected>보통 (1500-2500자)</option>
+                        <option value="long">긺 (2500-4000자)</option>
+                    </select>
+                </div>
+                
+                <button class="btn" onclick="generateContent()" disabled id="generate-content-btn">콘텐츠 생성하기</button>
+                <div class="loading" id="loading3">
+                    <div class="spinner"></div>
+                    고품질 블로그 콘텐츠를 생성하고 있습니다...
+                </div>
+                
+                <div id="content-results" class="results" style="display: none;"></div>
+            </div>
+
+            <!-- Step 4: WordPress 발행 -->
+            <div class="step" id="step4">
+                <div class="step-header">
+                    <div class="step-number">4</div>
+                    <div class="step-title">WordPress 자동 발행</div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="wp-site">WordPress 사이트 URL</label>
+                    <input type="text" id="wp-site" value="https://innerspell.com" placeholder="https://example.com" />
+                </div>
+                
+                <div class="input-group">
+                    <label for="wp-username">사용자명</label>
+                    <input type="text" id="wp-username" value="banana" placeholder="WordPress 사용자명" />
+                </div>
+                
+                <div class="input-group">
+                    <label for="wp-password">Application Password</label>
+                    <input type="password" id="wp-password" placeholder="WordPress Application Password" />
+                </div>
+                
+                <div class="input-group">
+                    <label for="wp-category">카테고리</label>
+                    <input type="text" id="wp-category" value="건강한 삶" placeholder="글 카테고리" />
+                </div>
+                
+                <button class="btn" onclick="publishWordPress()" disabled id="publish-btn">WordPress에 발행하기</button>
+                <div class="loading" id="loading4">
+                    <div class="spinner"></div>
+                    WordPress에 발행하고 있습니다...
+                </div>
+                
+                <div id="publish-results" class="results" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:4000';
+        let currentKeyword = '';
+        let selectedTitle = '';
+        let generatedContent = '';
+
+        // Step 1: 키워드 분석
+        async function analyzeKeyword() {
+            const keyword = document.getElementById('keyword').value.trim();
+            const country = document.getElementById('country').value;
+            
+            if (!keyword) {
+                alert('키워드를 입력해주세요.');
+                return;
+            }
+            
+            currentKeyword = keyword;
+            
+            document.getElementById('loading1').classList.add('show');
+            document.getElementById('keyword-results').style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/analyze-keywords`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword, country })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayKeywordResults(result.data);
+                    enableStep2();
+                } else {
+                    showError('키워드 분석에 실패했습니다.');
+                }
+            } catch (error) {
+                showError('서버 연결에 실패했습니다: ' + error.message);
+            } finally {
+                document.getElementById('loading1').classList.remove('show');
+            }
+        }
+
+        function displayKeywordResults(data) {
+            const resultsDiv = document.getElementById('keyword-results');
+            
+            resultsDiv.innerHTML = `
+                <h3>📊 키워드 분석 결과</h3>
+                <div class="keyword-analysis">
+                    <div class="metric">
+                        <div class="metric-value">${data.search_volume?.toLocaleString() || 'N/A'}</div>
+                        <div class="metric-label">월간 검색량</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${data.competition}</div>
+                        <div class="metric-label">경쟁도</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${data.difficulty}/100</div>
+                        <div class="metric-label">SEO 난이도</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">$${data.cpc}</div>
+                        <div class="metric-label">클릭당 비용</div>
+                    </div>
+                </div>
+                
+                <h4>🔗 관련 키워드</h4>
+                <div class="related-keywords">
+                    ${data.related_keywords?.map(kw => `<span class="keyword-tag">${kw}</span>`).join('') || ''}
+                </div>
+                
+                <h4>💡 콘텐츠 제안</h4>
+                <ul>
+                    ${data.content_suggestions?.map(suggestion => `<li>${suggestion}</li>`).join('') || ''}
+                </ul>
+            `;
+            
+            resultsDiv.style.display = 'block';
+        }
+
+        function enableStep2() {
+            document.getElementById('step2').classList.add('active');
+            document.getElementById('generate-titles-btn').disabled = false;
+        }
+
+        // Step 2: 제목 생성
+        async function generateTitles() {
+            const count = parseInt(document.getElementById('title-count').value);
+            const tone = document.getElementById('tone').value;
+            
+            document.getElementById('loading2').classList.add('show');
+            document.getElementById('title-results').style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/generate-titles`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword: currentKeyword, count, tone })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayTitleResults(result);
+                } else {
+                    showError('제목 생성에 실패했습니다.');
+                }
+            } catch (error) {
+                showError('서버 연결에 실패했습니다: ' + error.message);
+            } finally {
+                document.getElementById('loading2').classList.remove('show');
+            }
+        }
+
+        function displayTitleResults(result) {
+            const resultsDiv = document.getElementById('title-results');
+            
+            resultsDiv.innerHTML = `
+                <h3>✨ 생성된 제목들</h3>
+                <p>원하는 제목을 클릭하여 선택하세요:</p>
+                ${result.titles.map((title, index) => `
+                    <div class="title-option" onclick="selectTitle('${title.title}', ${index})">
+                        <div class="title-text">${title.title}</div>
+                        <div class="title-score">SEO 점수: ${title.score}/100 | 클릭 잠재력: ${title.click_potential}</div>
+                    </div>
+                `).join('')}
+            `;
+            
+            resultsDiv.style.display = 'block';
+        }
+
+        function selectTitle(title, index) {
+            // 이전 선택 해제
+            document.querySelectorAll('.title-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // 새 선택 적용
+            document.querySelectorAll('.title-option')[index].classList.add('selected');
+            selectedTitle = title;
+            
+            enableStep3();
+        }
+
+        function enableStep3() {
+            document.getElementById('step3').classList.add('active');
+            document.getElementById('generate-content-btn').disabled = false;
+        }
+
+        // Step 3: 콘텐츠 생성
+        async function generateContent() {
+            const length = document.getElementById('content-length').value;
+            const tone = document.getElementById('tone').value;
+            
+            if (!selectedTitle) {
+                alert('먼저 제목을 선택해주세요.');
+                return;
+            }
+            
+            document.getElementById('loading3').classList.add('show');
+            document.getElementById('content-results').style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/generate-content`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        title: selectedTitle, 
+                        keyword: currentKeyword, 
+                        length, 
+                        tone 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    generatedContent = result.content;
+                    displayContentResults(result);
+                    enableStep4();
+                } else {
+                    showError('콘텐츠 생성에 실패했습니다.');
+                }
+            } catch (error) {
+                showError('서버 연결에 실패했습니다: ' + error.message);
+            } finally {
+                document.getElementById('loading3').classList.remove('show');
+            }
+        }
+
+        function displayContentResults(result) {
+            const resultsDiv = document.getElementById('content-results');
+            
+            resultsDiv.innerHTML = `
+                <h3>📝 생성된 콘텐츠</h3>
+                <div class="content-stats">
+                    <span>📊 SEO 점수: ${result.seo_score}/100</span>
+                    <span>📖 가독성: ${result.readability_score}/100</span>
+                    <span>📏 글자 수: ${result.word_count?.toLocaleString()}</span>
+                    <span>⏱️ 예상 읽기 시간: ${result.estimated_reading_time}</span>
+                </div>
+                <div class="content-preview">
+                    ${result.content.replace(/\n/g, '<br>')}
+                </div>
+            `;
+            
+            resultsDiv.style.display = 'block';
+        }
+
+        function enableStep4() {
+            document.getElementById('step4').classList.add('active');
+            document.getElementById('publish-btn').disabled = false;
+        }
+
+        // Step 4: WordPress 발행
+        async function publishWordPress() {
+            const siteUrl = document.getElementById('wp-site').value.trim();
+            const username = document.getElementById('wp-username').value.trim();
+            const password = document.getElementById('wp-password').value.trim();
+            const category = document.getElementById('wp-category').value.trim();
+            
+            if (!siteUrl || !username || !password) {
+                alert('모든 WordPress 정보를 입력해주세요.');
+                return;
+            }
+            
+            if (!generatedContent) {
+                alert('먼저 콘텐츠를 생성해주세요.');
+                return;
+            }
+            
+            document.getElementById('loading4').classList.add('show');
+            document.getElementById('publish-results').style.display = 'none';
+            
+            try {
+                const response = await fetch(`${API_BASE}/publish-wordpress`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: selectedTitle,
+                        content: generatedContent,
+                        category,
+                        username,
+                        password,
+                        site_url: siteUrl
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayPublishResults(result);
+                } else {
+                    showError('WordPress 발행에 실패했습니다: ' + (result.message || '알 수 없는 오류'));
+                }
+            } catch (error) {
+                showError('서버 연결에 실패했습니다: ' + error.message);
+            } finally {
+                document.getElementById('loading4').classList.remove('show');
+            }
+        }
+
+        function displayPublishResults(result) {
+            const resultsDiv = document.getElementById('publish-results');
+            
+            resultsDiv.innerHTML = `
+                <div class="success-message">
+                    <h3>🎉 발행 완료!</h3>
+                    <p>${result.message}</p>
+                    <p><strong>포스트 ID:</strong> ${result.post_id}</p>
+                    <p><strong>URL:</strong> <a href="${result.post_url}" target="_blank">${result.post_url}</a></p>
+                    <p><strong>발행 시간:</strong> ${new Date(result.publication_time).toLocaleString()}</p>
+                </div>
+            `;
+            
+            resultsDiv.style.display = 'block';
+        }
+
+        function showError(message) {
+            // 모든 결과 영역에 에러 메시지 표시
+            const errorHtml = `<div class="error-message">❌ ${message}</div>`;
+            document.querySelectorAll('.results').forEach(div => {
+                if (div.style.display !== 'none') {
+                    div.innerHTML = errorHtml;
+                }
+            });
+        }
+
+        // 엔터 키 이벤트
+        document.getElementById('keyword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                analyzeKeyword();
+            }
+        });
+    </script>
+</body>
+</html>

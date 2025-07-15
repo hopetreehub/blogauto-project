@@ -1,0 +1,27 @@
+
+# WordPress REST API Authorization 헤더 수정 (LiteSpeed 서버용)
+# 이 코드를 WordPress 루트 디렉토리의 .htaccess 파일에 추가하세요
+
+# BEGIN WordPress REST API Authorization Fix
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# Authorization 헤더가 전달되도록 설정
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule ^(.*) - [E=HTTP_AUTHORIZATION:%1]
+
+# REMOTE_USER 환경 변수 설정
+RewriteCond %{HTTP:Authorization} ^Basic\s+(.*)$
+RewriteRule ^(.*)$ - [E=REMOTE_USER:%1]
+
+# LiteSpeed 전용 Authorization 헤더 처리
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
+# LiteSpeed Cache 플러그인이 설치된 경우
+<IfModule LiteSpeed>
+# REST API 경로를 캐시에서 제외
+SetEnv noabort 1
+SetEnv no-gzip 1
+</IfModule>
+# END WordPress REST API Authorization Fix
